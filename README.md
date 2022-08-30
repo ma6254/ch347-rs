@@ -1,5 +1,7 @@
 # CH347-RS
 
+> **Note: Not ready yet, please wait**
+
 <p align="center">
 
 CH347 driver library in Rust
