@@ -5,7 +5,7 @@ use libc;
 /// windows filesystem path limit
 ///
 /// <https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation>
-pub const MAX_PATH: usize = 256;
+pub const MAX_PATH: usize = 260;
 
 /// A Boolean variable (should be TRUE or FALSE).
 ///
@@ -23,7 +23,6 @@ pub type BOOL = libc::c_int;
 /// ```
 pub type CHAR = libc::c_char;
 
-
 /// An unsigned CHAR.
 ///
 /// This type is declared in `WinDef.h` as follows:
@@ -33,6 +32,7 @@ pub type CHAR = libc::c_char;
 pub type UCHAR = libc::c_uchar;
 
 pub type PCHAR = *mut libc::c_char;
+pub type PUCHAR = *mut libc::c_uchar;
 
 pub type USHORT = libc::c_ushort;
 pub type SHORT = libc::c_short;

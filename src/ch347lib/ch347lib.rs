@@ -1,42 +1,61 @@
 use crate::windows::basetsd::*;
+use std::ffi::CStr;
+use std::fmt;
 
 pub const INVALID_HANDLE_VALUE: HANDLE = -1 as LONG as HANDLE;
 
-// enum UsbType {
-//     Ch347UsbCh341 = 0,
-//     Ch347UsbHid = 2,
-//     Ch347UsbVcp = 3,
-// }
+#[derive(Debug)]
+pub enum NotifyiEventStatus {
+    Inserted,
+    Removed,
+    Unknow(ULONG),
+}
 
-// enum Ch347FuncType{
-//     Ch347FuncUart=0,
-//     Ch347FuncSpiI2c=1,
-//     Ch347FuncJtagI2c=2,
-// }
+#[derive(Debug)]
+pub enum UsbClass {
+    Ch341,
+    Hid,
+    Vcp,
+}
+
+#[derive(Debug)]
+pub enum UsbSpeedType {
+    FS, // USB1.0 12Mbit/s
+    HS, // USB2.0 480Mbit/s
+    SS, // USB3.0 5GMbit/s
+}
+
+#[derive(Debug)]
+pub enum FuncType {
+    Uart,
+    SpiI2c,
+    JtagI2c,
+}
 
 /// 设备信息
 #[repr(C)]
+#[derive(Debug)]
 pub struct DeviceInfo {
-    pub index: UCHAR,                  // 当前打开序号
-    pub device_path: [CHAR; MAX_PATH], // 设备链接名,用于CreateFile
+    pub index: UCHAR,                   // 当前打开序号
+    pub device_path: [UCHAR; MAX_PATH], // 设备链接名,用于CreateFile
 
     /// 0:CH347_USB_CH341, 2:CH347_USB_HID,3:CH347_USB_VCP
-    pub usb_class: UCHAR,
+    usb_class: UCHAR,
 
     /// - 0: CH347_FUNC_UART
     /// - 1: CH347_FUNC_SPI_I2C
     /// - 2: CH347_FUNC_JTAG_I2C
-    pub func_type: UCHAR,
+    func_type: UCHAR,
 
     /// USB\VID_xxxx&PID_xxxx
-    pub device_id: [CHAR; 64],
+    device_id: [UCHAR; 64],
 
     /// 芯片模式
     /// - 0: Mode0(UART0/1);
     /// - 1: Mode1(Uart1+SPI+I2C);
     /// - 2: Mode2(HID Uart1+SPI+I2C)
     /// - 3: Mode3(Uart1+Jtag+IIC)
-    pub chip_mode: UCHAR,
+    chip_mode: UCHAR,
 
     /// 设备句柄
     pub device_handle: HANDLE,
@@ -45,7 +64,7 @@ pub struct DeviceInfo {
     /// 下传端点大小
     pub bulk_in_ep_max_size: USHORT,
     /// USB速度类型，0:FS,1:HS,2:SS
-    pub usb_speed_type: UCHAR,
+    usb_speed_type: UCHAR,
     /// 设备接口号: 0:UART,1:SPI/IIC/JTAG/GPIO
     pub ch347_if_num: UCHAR,
     /// 端点地址
@@ -53,24 +72,24 @@ pub struct DeviceInfo {
     /// 端点地址
     pub data_down_ep: UCHAR,
     /// USB产品字符串
-    pub rpoduct_string: [CHAR; 64],
+    rpoduct_string: [UCHAR; 64],
     /// USB厂商字符串
-    pub manufacturer_string: CHAR,
+    manufacturer_string: [UCHAR; 64],
     /// USB写超时
     pub write_timeout: ULONG,
     /// USB读超时
     pub read_timeout: ULONG,
     /// 接口功能描述符
-    pub func_desc_str: [CHAR; 64],
+    func_desc_str: [UCHAR; 64],
     /// 固件版本
     pub fw_ver: UCHAR,
 }
 
 impl DeviceInfo {
-    fn default<'a>() -> *mut DeviceInfo {
-        return &mut DeviceInfo {
+    fn default<'a>() -> DeviceInfo {
+        return DeviceInfo {
             index: 0,
-            device_path: [0; 256],
+            device_path: [0; 260],
             usb_class: 0,
             func_type: 0,
             device_id: [0; 64],
@@ -83,12 +102,87 @@ impl DeviceInfo {
             data_up_ep: 0,
             data_down_ep: 0,
             rpoduct_string: [0; 64],
-            manufacturer_string: 0,
+            manufacturer_string: [0; 64],
             write_timeout: 0,
             read_timeout: 0,
             func_desc_str: [0; 64],
             fw_ver: 0,
         };
+    }
+
+    pub fn get_device_path(&self) -> String {
+        unsafe {
+            let str = CStr::from_bytes_with_nul_unchecked(&self.device_path);
+            return String::from(str.to_str().unwrap().trim_end_matches('\0'));
+        }
+    }
+
+    pub fn get_usb_class(&self) -> Option<UsbClass> {
+        match self.usb_class {
+            0 => Some(UsbClass::Ch341),
+            2 => Some(UsbClass::Hid),
+            3 => Some(UsbClass::Vcp),
+            _ => None,
+        }
+    }
+
+    pub fn get_func_type(&self) -> Option<FuncType> {
+        match self.func_type {
+            0 => Some(FuncType::Uart),
+            1 => Some(FuncType::SpiI2c),
+            2 => Some(FuncType::JtagI2c),
+            _ => None,
+        }
+    }
+
+    pub fn get_device_id(&self) -> String {
+        unsafe {
+            let str = CStr::from_bytes_with_nul_unchecked(&self.device_id);
+            return String::from(str.to_str().unwrap().trim_end_matches('\0'));
+        }
+    }
+
+    pub fn get_rpoduct_string(&self) -> String {
+        unsafe {
+            let str = CStr::from_bytes_with_nul_unchecked(&self.rpoduct_string);
+            return String::from(str.to_str().unwrap().trim_end_matches('\0'));
+        }
+    }
+
+    pub fn get_usb_speed_type(&self) -> Option<UsbSpeedType> {
+        match self.usb_speed_type {
+            0 => Some(UsbSpeedType::FS),
+            1 => Some(UsbSpeedType::HS),
+            2 => Some(UsbSpeedType::SS),
+            _ => None,
+        }
+    }
+
+    pub fn get_manufacturer_string(&self) -> String {
+        unsafe {
+            let str = CStr::from_bytes_with_nul_unchecked(&self.manufacturer_string);
+            return String::from(str.to_str().unwrap().trim_end_matches('\0'));
+        }
+    }
+
+    pub fn get_func_desc_str(&self) -> String {
+        unsafe {
+            let str = CStr::from_bytes_with_nul_unchecked(&self.func_desc_str);
+            return String::from(str.to_str().unwrap().trim_end_matches('\0'));
+        }
+    }
+}
+
+impl fmt::Display for DeviceInfo {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "#{} usb:{:?}, func:{:?}, id:{}",
+            self.index,
+            self.get_usb_class(),
+            self.get_func_type(),
+            self.get_device_id()
+        )
     }
 }
 
@@ -151,7 +245,7 @@ extern "C" {
     ///
     /// 执行成功返回 1，失败返回 0
     ///
-    pub fn CH347GetDeviceInfor(iIndex: ULONG, DevInformation: *mut DeviceInfo) -> BOOL;
+    pub fn CH347GetDeviceInfor(iIndex: ULONG, DevInformation: *const DeviceInfo) -> BOOL;
 
     /// 设定设备事件通知程序
     ///
@@ -211,9 +305,32 @@ extern "C" {
     ///
     pub fn CH347SetDeviceNotify(
         iIndex: ULONG,
-        iDeviceID: PCHAR,
-        iNotifyRoutine: extern "C" fn(iEventStatus: ULONG),
+        iDeviceID: *const libc::c_uchar,
+        iNotifyRoutine: *mut libc::c_void,
+        // iNotifyRoutine: Ch347NotifyRoutine,
     ) -> BOOL;
+
+    /// 该函数用于打开 CH347 串口
+    ///
+    /// ```c
+    /// HANDLE WINAPI CH347Uart_Open(ULONG iIndex);
+    /// ```
+    pub fn CH347Uart_Open(DevI: ULONG) -> HANDLE;
+
+    /// 该函数用于关闭 CH347 串口
+    ///
+    /// ```c
+    /// HANDLE WINAPI CH347Uart_Close(ULONG iIndex);
+    /// ```
+    pub fn CH347Uart_Close(DevI: ULONG) -> HANDLE;
+
+    /// ```c
+    /// BOOL WINAPI CH347Uart_GetDeviceInfor(ULONG iIndex,mDeviceInforS *DevInformation);
+    /// ```
+    pub fn CH347Uart_GetDeviceInfor(iIndex: ULONG, DevInformation: *const DeviceInfo) -> BOOL;
+
+    // pub fn CH347Uart_SetDeviceNotify
+
 }
 
 /// 枚举设备列表
@@ -227,8 +344,8 @@ extern "C" {
 /// ```rust
 /// println!("enum_device: {:?}", ch347lib::enum_device());
 /// ```
-pub fn enum_device() -> Vec<*mut DeviceInfo> {
-    let mut device_info_list = Vec::new();
+pub fn enum_device() -> Vec<DeviceInfo> {
+    let mut device_info_list: Vec<DeviceInfo> = Vec::new();
 
     for i in 0..16 {
         unsafe {
@@ -241,6 +358,26 @@ pub fn enum_device() -> Vec<*mut DeviceInfo> {
             }
 
             CH347CloseDevice(i);
+        }
+    }
+
+    return device_info_list;
+}
+
+pub fn enum_uart_device() -> Vec<DeviceInfo> {
+    let mut device_info_list: Vec<DeviceInfo> = Vec::new();
+
+    for i in 0..16 {
+        unsafe {
+            if CH347Uart_Open(i) == INVALID_HANDLE_VALUE {
+                continue;
+            }
+
+            if let Some(info) = get_uart_device_info(i as u64) {
+                device_info_list.push(info);
+            }
+
+            CH347Uart_Close(i);
         }
     }
 
@@ -261,7 +398,7 @@ pub fn enum_device() -> Vec<*mut DeviceInfo> {
 /// use doc::Person;
 /// let person = Person::new("name");
 /// ```
-pub fn get_version(device_index: u64) -> (BOOL, u8, u8, u8, u8) {
+pub fn get_version(device_index: u32) -> (BOOL, u8, u8, u8, u8) {
     let mut i_driver_ver: u8 = 0;
     let mut i_dllver: u8 = 0;
     let mut ibcd_device: u8 = 0;
@@ -281,11 +418,11 @@ pub fn get_version(device_index: u64) -> (BOOL, u8, u8, u8, u8) {
     return (ret, i_driver_ver, i_dllver, ibcd_device, i_chip_type);
 }
 
-pub fn get_device_info(device_index: u64) -> Option<*mut DeviceInfo> {
+pub fn get_device_info(device_index: u64) -> Option<DeviceInfo> {
     let device_info = DeviceInfo::default();
     let ret: BOOL;
     unsafe {
-        ret = CH347GetDeviceInfor(device_index as libc::c_ulong, device_info);
+        ret = CH347GetDeviceInfor(device_index as libc::c_ulong, &device_info as *const _);
     }
 
     if ret == 0 {
@@ -293,4 +430,42 @@ pub fn get_device_info(device_index: u64) -> Option<*mut DeviceInfo> {
     }
 
     return Some(device_info);
+}
+
+pub fn get_uart_device_info(device_index: u64) -> Option<DeviceInfo> {
+    let device_info = DeviceInfo::default();
+    let ret: BOOL;
+    unsafe {
+        ret = CH347Uart_GetDeviceInfor(device_index as libc::c_ulong, &device_info as *const _);
+    }
+
+    if ret == 0 {
+        return None;
+    }
+
+    return Some(device_info);
+}
+
+pub fn set_notify_callback(
+    device_index: u32,
+    device_id: &str,
+    callback: fn(s: NotifyiEventStatus),
+) {
+    unsafe {
+        let mut cbk_fn = |state: ULONG| {
+            println!("Ch347NotifyRoutine");
+            callback(match state {
+                0 => NotifyiEventStatus::Inserted,
+                3 => NotifyiEventStatus::Removed,
+                _ => NotifyiEventStatus::Unknow(state),
+            });
+        };
+
+        CH347SetDeviceNotify(
+            device_index,
+            // device_id.clone().as_mut_ptr(),
+            device_id.as_ptr(),
+            &mut cbk_fn as *mut _ as *mut libc::c_void,
+        );
+    }
 }
