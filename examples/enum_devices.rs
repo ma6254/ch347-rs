@@ -1,12 +1,13 @@
 // use std::io::{stdin, stdout, Read, Write};
-use ch347_rs::ch347lib::ch347lib;
+
+use ch347_rs;
 
 fn main() {
-    ch347lib::set_notify_callback(0, "VID_1A86&PID_55D\0", |status| {
+    ch347_rs::set_notify_callback(0, "VID_1A86&PID_55D\0", |status| {
         println!("[notify_callback] {:?}", status);
     });
 
-    let a = ch347lib::enum_device();
+    let a = ch347_rs::enum_device();
     // println!("enum_device len:{:?} :", a.len());
     for (k, v) in a.iter().enumerate() {
         println!(
@@ -23,7 +24,7 @@ fn main() {
         // println!("#{} => {} ", k, v)
     }
 
-    let a = ch347lib::enum_uart_device();
+    let a = ch347_rs::enum_uart_device();
     // println!("enum_uart_device len:{:?} :", a.len());
     for (k, v) in a.iter().enumerate() {
         println!(

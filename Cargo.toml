@@ -9,8 +9,8 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [[bin]]
-name = "ch347_rs"
-path = "src/bin/main.rs"
+name = "ch347tool"
+path = "src/bin/ch347tool/main.rs"
 doc = false
 
 [lib]
@@ -19,4 +19,7 @@ doctest = true
 doc = true
 
 [dependencies]
+clap = { version = "3.2", features = ["derive"] }
 libc = "0.2"
+serde ={ version= "1.0", features = ["derive"] }
+serde_json = "1.0"
