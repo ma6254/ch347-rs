@@ -1,4 +1,5 @@
 mod gpio;
+mod i2c;
 mod list;
 
 use clap::{Parser, Subcommand};
@@ -16,8 +17,8 @@ enum Commands {
     List(list::CmdListDevice),
     Info,
     Spi,
-    I2cDelect,
-    I2cDump,
+    I2cDelect(i2c::CmdI2cDelect),
+    I2cDump(i2c::CmdI2cDump),
     Gpio(gpio::CmdGpio),
 }
 
@@ -26,8 +27,10 @@ fn main() {
     match &cli.command {
         Commands::List(args) => list::cli_list_device(args),
         Commands::Gpio(args) => gpio::cli_operator_gpio(args),
+        Commands::I2cDelect(args) => i2c::cli_i2c_delect(args),
+        Commands::I2cDump(args) => i2c::cli_i2c_dump(args),
         _ => {
-            println!("Default subcommand");
+            println!("undefined command");
         }
     }
 }

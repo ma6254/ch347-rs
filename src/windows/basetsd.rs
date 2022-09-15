@@ -37,21 +37,25 @@ pub type UCHAR = libc::c_uchar;
 
 #[allow(dead_code)]
 pub type PCHAR = *mut libc::c_char;
+
 #[allow(dead_code)]
 pub type PUCHAR = *mut libc::c_uchar;
 
 #[allow(dead_code)]
 pub type USHORT = libc::c_ushort;
+
 #[allow(dead_code)]
 pub type SHORT = libc::c_short;
 
 #[allow(dead_code)]
 pub type ULONG = libc::c_ulong;
+
 #[allow(dead_code)]
 pub type LONG = libc::c_long;
 
 #[allow(dead_code)]
 pub type VOID = libc::c_void;
+
 #[allow(dead_code)]
 pub type PVOID = *mut VOID;
 

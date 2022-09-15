@@ -331,5 +331,53 @@ extern "C" {
 
     // pub fn CH347Uart_SetDeviceNotify
 
-}
+    /// 获取CH347的GPIO方向和引脚电平值
+    ///
+    /// ```c
+    /// BOOL WINAPI CH347GPIO_Get(ULONG iIndex,
+    ///     UCHAR *iDir,   //引脚方向:GPIO0-7对应位0-7.0：输入；1：输出
+    ///     UCHAR *iData); //GPIO0电平:GPIO0-7对应位0-7,0：低电平；1：高电平)
+    /// ```
+    pub fn CH347GPIO_Get(iIndex: ULONG, iDir: PUCHAR, iData: PUCHAR) -> BOOL;
 
+    /// 设置CH347的GPIO方向和引脚电平值
+    ///
+    /// ```c
+    /// BOOL WINAPI CH347GPIO_Set(ULONG iIndex,
+    ///     UCHAR iEnable,      //数据有效标志:对应位0-7,对应GPIO0-7.
+    ///     UCHAR iSetDirOut,   //设置I/O方向,某位清0则对应引脚为输入,某位置1则对应引脚为输出.GPIO0-7对应位0-7.
+    ///     UCHAR iSetDataOut); //输出数据,如果I/O方向为输出,那么某位清0时对应引脚输出低电平,某位置1时对应引脚输出高电平
+    /// ```
+    pub fn CH347GPIO_Set(
+        iIndex: ULONG,
+        iEnable: UCHAR,
+        iSetDirOut: UCHAR,
+        iSetDataOut: UCHAR,
+    ) -> BOOL;
+
+    /// ```c
+    ///     BOOL	WINAPI	CH347I2C_Set(ULONG			iIndex,  // 指定设备序号
+    ///         ULONG			iMode );  // 指定模式,见下行
+    /// // 位1-位0: I2C接口速度/SCL频率, 00=低速/20KHz,01=标准/100KHz(默认值),10=快速/400KHz,11=高速/750KHz
+    /// // 其它保留,必须为0
+    /// ```
+    pub fn CH347I2C_Set(iIndex: ULONG, iMode: ULONG) -> BOOL;
+
+    /// 处理I2C数据流,2线接口,时钟线为SCL引脚,数据线为SDA引脚
+    ///
+    /// ```c
+    ///  BOOL	WINAPI	CH347StreamI2C(
+    ///      ULONG		iIndex,        // 指定设备序号
+    ///      ULONG		iWriteLength,  // 准备写出的数据字节数
+    ///      PVOID		iWriteBuffer,  // 指向一个缓冲区,放置准备写出的数据,首字节通常是I2C设备地址及读写方向位
+    ///      ULONG		iReadLength,   // 准备读取的数据字节数
+    ///      PVOID		oReadBuffer ); // 指向一个缓冲区,返回后是读入的数据
+    /// ```
+    pub fn CH347StreamI2C(
+        iIndex: ULONG,
+        iWriteLength: ULONG,
+        iWriteBuffer: PVOID,
+        iReadLength: ULONG,
+        oReadBuffer: PVOID,
+    ) -> BOOL;
+}
