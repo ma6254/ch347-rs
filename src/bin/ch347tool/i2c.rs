@@ -66,11 +66,18 @@ pub fn cli_i2c_delect(args: &CmdI2cDelect) {
     for y in 0..8 {
         let mut s = String::from(format!("{:02X}:", y * 0x10));
         for x in 0..16 {
+            // skip reserved addresses
+            if ((y == 0x00) && (x <= 0x2)) || ((y == 0x07) && (x >= 0x08)) {
+                s.push_str(&format!("   "));
+                continue;
+            }
+
             if ch347_rs::i2c_device_delect(args.index, y * 0x10 + x) {
                 s.push_str(&format!(" {:02X}", y * 0x10 + x));
-            } else {
-                s.push_str(&format!(" --"));
+                continue;
             }
+
+            s.push_str(&format!(" --"));
         }
         println!("{}", s);
     }
