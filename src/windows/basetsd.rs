@@ -51,6 +51,9 @@ pub type SHORT = libc::c_short;
 pub type ULONG = libc::c_ulong;
 
 #[allow(dead_code)]
+pub type PULONG = *mut ULONG;
+
+#[allow(dead_code)]
 pub type LONG = libc::c_long;
 
 #[allow(dead_code)]

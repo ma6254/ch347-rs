@@ -85,6 +85,61 @@ pub struct DeviceInfo {
     pub fw_ver: UCHAR,
 }
 
+#[repr(C)]
+#[derive(Debug)]
+pub struct SpiConfig {
+    /// 0-3:SPI Mode0/1/2/3
+    pub mode: UCHAR,
+
+    // 0=60MHz, 1=30MHz, 2=15MHz, 3=7.5MHz, 4=3.75MHz, 5=1.875MHz, 6=937.5KHz，7=468.75KHz
+    pub clock: UCHAR,
+
+    /// 0=低位在前(LSB), 1=高位在前(MSB)
+    pub byte_order: UCHAR,
+
+    /// SPI接口常规读取写入数据命令，单位为uS
+    pub write_read_interval: USHORT,
+
+    /// SPI读数据时默认输出数据
+    pub out_default_data: UCHAR,
+
+    /// 片选控制, 位7为0则忽略片选控制, 位7为1则参数有效: 位1位0为00/01分别选择CS1/CS2引脚作为低电平有效片选
+    pub chip_select: ULONG,
+
+    // 位0：片选CS1极性控制：0：低电平有效；1：高电平有效；
+    pub cs1_polarity: UCHAR,
+
+    /// 位0：片选CS2极性控制：0：低电平有效；1：高电平有效；
+    pub cs2_polarity: UCHAR,
+
+    /// 操作完成后是否自动撤消片选
+    pub is_auto_deative_cs: USHORT,
+
+    /// 设置片选后执行读写操作的延时时间,单位us
+    pub active_delay: USHORT,
+
+    /// 撤消片选后执行读写操作的延时时间,单位us
+    pub delay_deactive: ULONG,
+}
+
+impl Default for SpiConfig {
+    fn default() -> SpiConfig {
+        SpiConfig {
+            mode: 0,
+            clock: 0,
+            byte_order: 0,
+            write_read_interval: 0,
+            out_default_data: 0,
+            chip_select: 0,
+            cs1_polarity: 0,
+            cs2_polarity: 0,
+            is_auto_deative_cs: 0,
+            active_delay: 0,
+            delay_deactive: 0,
+        }
+    }
+}
+
 impl DeviceInfo {
     pub fn default<'a>() -> DeviceInfo {
         return DeviceInfo {
@@ -379,5 +434,63 @@ extern "C" {
         iWriteBuffer: PVOID,
         iReadLength: ULONG,
         oReadBuffer: PVOID,
+    ) -> BOOL;
+
+    /// SPI控制器初始化
+    ///
+    /// ``` c
+    /// BOOL	WINAPI	CH347SPI_Init(ULONG iIndex,mSpiCfgS *SpiCfg);
+    /// ```
+    pub fn CH347SPI_Init(iIndex: ULONG, mSpiCfgS: *mut SpiConfig) -> BOOL;
+
+    /// 获取SPI控制器配置信息
+    /// ```c
+    /// BOOL    WINAPI  CH347SPI_GetCfg(ULONG iIndex,mSpiCfgS *SpiCfg);
+    /// ```
+    pub fn CH347SPI_GetCfg(iIndex: ULONG, mSpiCfgS: *mut SpiConfig) -> BOOL;
+
+    pub fn CH347SPI_ChangeCS(iIndex: ULONG, iStatus: UCHAR);
+
+    /// 该函数用于设置 SPI 片选
+    pub fn CH347SPI_SetChipSelect(
+        iIndex: ULONG,
+        iEnableSelect: USHORT,
+        iChipSelect: USHORT,
+        iActiveDelay: ULONG,
+        iDelayDeactive: ULONG,
+    );
+
+    /// 该函数用于 SPI 写数据
+    pub fn CH347SPI_Write(
+        iIndex: ULONG,
+        iChipSelect: ULONG,
+        iLength: ULONG,
+        iWriteStep: ULONG,
+        ioBuffer: PVOID,
+    ) -> BOOL;
+
+    /// 该函数用于读取 SPI 数据
+    pub fn CH347SPI_Read(
+        iIndex: ULONG,
+        iChipSelect: ULONG,
+        oLength: ULONG,
+        iLength: PULONG,
+        ioBuffer: PVOID,
+    ) -> BOOL;
+
+    /// 该函数用于写入和读取 SPI 数据流
+    pub fn CH347SPI_WriteRead(
+        iIndex: ULONG,
+        iChipSelect: ULONG,
+        iLength: ULONG,
+        ioBuffer: PVOID,
+    ) -> BOOL;
+
+    /// 该函数用于处理 SPI 数据流，写入的同时读出数据
+    pub fn CH347StreamSPI4(
+        iIndex: ULONG,
+        iChipSelect: ULONG,
+        iLength: ULONG,
+        ioBuffer: PVOID,
     ) -> BOOL;
 }

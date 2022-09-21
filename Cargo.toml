@@ -19,7 +19,10 @@ doctest = true
 doc = true
 
 [dependencies]
+byte-unit = "4.0.14"
 clap = { version = "3.2", features = ["derive"] }
+hex = "0.4.3"
+indicatif = "0.17.1"
 libc = "0.2"
 serde ={ version= "1.0", features = ["derive"] }
 serde_json = "1.0"

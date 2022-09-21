@@ -1,6 +1,7 @@
 mod gpio;
 mod i2c;
 mod list;
+mod spi_flash;
 
 use clap::{Parser, Subcommand};
 use shadow_rs::shadow;
@@ -19,6 +20,7 @@ enum Commands {
     List(list::CmdListDevice),
     Info,
     Spi,
+    SpiFlash(spi_flash::CmdSpiFlash),
     I2cDelect(i2c::CmdI2cDelect),
     I2cDump(i2c::CmdI2cDump),
     Gpio(gpio::CmdGpio),
@@ -31,6 +33,7 @@ fn main() {
         Commands::Gpio(args) => gpio::cli_operator_gpio(args),
         Commands::I2cDelect(args) => i2c::cli_i2c_delect(args),
         Commands::I2cDump(args) => i2c::cli_i2c_dump(args),
+        Commands::SpiFlash(args) => spi_flash::cli_spi_flash(args),
         _ => {
             println!("undefined command");
         }

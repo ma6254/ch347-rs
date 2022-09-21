@@ -1,4 +1,5 @@
 use super::ch347dll::*;
+use crate::spi_flash::{SpiDrive, SpiFlash};
 use crate::windows::basetsd::*;
 
 /// 枚举设备列表
@@ -153,4 +154,73 @@ pub fn i2c_device_delect(device_index: u32, i2c_dev_addr: u8) -> bool {
         }
     }
     return true;
+}
+
+pub struct Ch347Device {
+    index: u32,
+}
+
+pub fn enum_ch347_device() -> Vec<Ch347Device> {
+    let mut device_list: Vec<Ch347Device> = Vec::new();
+
+    for i in enum_device() {
+        device_list.push(Ch347Device::new(i.index as u32));
+    }
+
+    for i in enum_uart_device() {
+        device_list.push(Ch347Device::new(i.index as u32));
+    }
+
+    return device_list;
+}
+
+impl Ch347Device {
+    pub fn new(index: u32) -> Ch347Device {
+        Ch347Device { index: index }
+    }
+
+    pub fn spi_flash(self) -> SpiFlash<Ch347Device> {
+        SpiFlash::new(self)
+    }
+}
+
+impl SpiDrive for Ch347Device {
+    fn transfer(&self, iobuf: &mut [u8]) -> Result<(), &'static str> {
+        unsafe {
+            if CH347StreamSPI4(
+                self.index,
+                0x00,
+                iobuf.len() as ULONG,
+                iobuf.as_mut_ptr() as *mut libc::c_void,
+            ) == 0
+            {
+                return Err("ch347 transfer failed");
+            }
+        }
+
+        return Ok(());
+    }
+
+    fn write_after_read(
+        &self,
+        write_len: u32,
+        read_len: u32,
+        iobuf: &mut [u8],
+    ) -> Result<(), &'static str> {
+        unsafe {
+            let mut i_len = read_len as u32;
+            if CH347SPI_Read(
+                self.index,
+                0x80,
+                write_len as ULONG,
+                &mut i_len,
+                iobuf.as_mut_ptr() as *mut libc::c_void,
+            ) == 0
+            {
+                return Err("ch347 transfer failed");
+            }
+        }
+
+        return Ok(());
+    }
 }
