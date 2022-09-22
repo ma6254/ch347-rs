@@ -1,9 +1,12 @@
+use std::{
+    fmt::Write,
+    fs,
+    time::{Duration, SystemTime},
+};
+
 use ch347_rs;
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
-use std::fmt::Write;
-
-use std::fs;
 
 #[derive(Parser, Clone, Debug)]
 #[clap(about = "Read spi flash chip")]
@@ -19,6 +22,15 @@ pub fn cli_spi_flash_read(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashRea
             return;
         }
     }
+
+    let clock_level = match ch347_rs::SpiClockLevel::from_byte(flash_args.freq) {
+        None => {
+            println!("Unknow SPI clock level: {}", flash_args.freq);
+            return;
+        }
+        Some(level) => level,
+    };
+    println!("Select SPI Clock: {}", clock_level);
 
     unsafe {
         let mut spicfg = ch347_rs::SpiConfig::default();
@@ -60,7 +72,9 @@ pub fn cli_spi_flash_read(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashRea
         .with_key("eta", |state: &ProgressState, w: &mut dyn Write| write!(w, "{:.1}s", state.eta().as_secs_f64()).unwrap())
         .progress_chars("#>-"));
 
-        println!("Reading...");
+        println!("Reading ...");
+        let start_time = SystemTime::now();
+
         const BLOCK_SIZE: usize = 4096;
         for i in 0..(chip_info.capacity / (BLOCK_SIZE as u32)) {
             let mut rbuf: [u8; BLOCK_SIZE] = [0; BLOCK_SIZE];
@@ -68,9 +82,29 @@ pub fn cli_spi_flash_read(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashRea
             all_buf.extend_from_slice(&rbuf);
             pb.set_position((i * BLOCK_SIZE as u32) as u64);
         }
-        pb.finish();
+        let take_time = start_time.elapsed().unwrap().as_millis();
+        let take_time = Duration::from_millis(take_time as u64);
+        pb.finish_and_clear();
+        fs::write(args.file.as_str(), &all_buf).unwrap();
 
-        fs::write(args.file.as_str(), all_buf).unwrap();
+        println!("Done, Take time: {}", humantime::format_duration(take_time));
+        let speed = (all_buf.len() as f64) / take_time.as_secs_f64();
+        if speed < (1024.0) {
+            println!(
+                "{:.2} KB/S ",
+                (all_buf.len() as f64) / take_time.as_secs_f64()
+            );
+        } else if speed < (1024.0 * 1024.0) {
+            println!(
+                "{:.2} KB/S ",
+                (all_buf.len() as f64) / take_time.as_secs_f64() / 1024.0
+            );
+        } else {
+            println!(
+                "{:.2} MB/S ",
+                (all_buf.len() as f64) / take_time.as_secs_f64() / 1024.0 / 1024.0
+            );
+        }
     }
 
     unsafe {

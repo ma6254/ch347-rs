@@ -1,5 +1,6 @@
 mod check;
 mod delect;
+mod erase;
 mod read;
 
 use clap::{Parser, Subcommand, ValueEnum};
@@ -32,6 +33,7 @@ enum CS {
 #[derive(Subcommand, Debug)]
 pub enum Commands {
     Delect(delect::CmdSpiFlashDelect),
+    Erase(erase::CmdSpiFlashErase),
     Read(read::CmdSpiFlashRead),
     Check(check::CmdSpiFlashCheck),
 }
@@ -39,6 +41,7 @@ pub enum Commands {
 pub fn cli_spi_flash(args: &CmdSpiFlash) {
     match &args.command {
         Commands::Delect(sub_args) => delect::cli_spi_flash_detect(args, sub_args),
+        Commands::Erase(sub_args) => erase::cli_spi_flash_erase(args, sub_args),
         Commands::Read(sub_args) => read::cli_spi_flash_read(args, sub_args),
         Commands::Check(sub_args) => check::cli_spi_flash_check(args, sub_args),
     }

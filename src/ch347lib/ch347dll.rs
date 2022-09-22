@@ -32,6 +32,53 @@ pub enum FuncType {
     JtagI2c,
 }
 
+#[derive(Debug)]
+pub enum SpiClockLevel {
+    S60M,
+    S30M,
+    S15M,
+    S7_5M,
+    S3_75M,
+    S1_875M,
+    S937_5K,
+    S468_75K,
+}
+
+impl SpiClockLevel {
+    pub fn from_byte(data: u8) -> Option<SpiClockLevel> {
+        match data {
+            0 => Some(SpiClockLevel::S60M),
+            1 => Some(SpiClockLevel::S30M),
+            2 => Some(SpiClockLevel::S15M),
+            3 => Some(SpiClockLevel::S7_5M),
+            4 => Some(SpiClockLevel::S3_75M),
+            5 => Some(SpiClockLevel::S1_875M),
+            6 => Some(SpiClockLevel::S937_5K),
+            7 => Some(SpiClockLevel::S468_75K),
+            _ => None,
+        }
+    }
+}
+
+impl fmt::Display for SpiClockLevel {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                SpiClockLevel::S60M => "60MHz",
+                SpiClockLevel::S30M => "30MHz",
+                SpiClockLevel::S15M => "15MHz",
+                SpiClockLevel::S7_5M => "7.5MHz",
+                SpiClockLevel::S3_75M => "3.75MHz",
+                SpiClockLevel::S1_875M => "1.875MHz",
+                SpiClockLevel::S937_5K => "937kHz",
+                SpiClockLevel::S468_75K => "468.75kHz",
+            }
+        )
+    }
+}
+
 /// 设备信息
 #[repr(C)]
 #[derive(Debug)]
