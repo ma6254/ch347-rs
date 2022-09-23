@@ -91,7 +91,7 @@ pub fn cli_spi_flash_read(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashRea
         let speed = (all_buf.len() as f64) / take_time.as_secs_f64();
         if speed < (1024.0) {
             println!(
-                "{:.2} KB/S ",
+                "{:.2} B/S ",
                 (all_buf.len() as f64) / take_time.as_secs_f64()
             );
         } else if speed < (1024.0 * 1024.0) {

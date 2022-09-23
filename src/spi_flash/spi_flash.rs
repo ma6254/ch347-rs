@@ -17,6 +17,13 @@ pub enum SpiFlashCmd {
     ReadData,
 }
 
+pub enum WriteEvent {
+    Block(usize, usize),
+    Finish(usize),
+}
+
+pub type WriteEventFn = fn(e: WriteEvent);
+
 impl Into<u8> for SpiFlashCmd {
     fn into(self) -> u8 {
         match self {
@@ -141,6 +148,66 @@ impl<T: SpiDrive> SpiFlash<T> {
 
         self.wait_not_busy()?;
 
+        return Ok(());
+    }
+
+    pub fn write(&self, addr: u32, buf: &[u8]) -> Result<(), &'static str> {
+        self.write_with_callback(|_| true, addr, buf)
+    }
+
+    pub fn write_with_callback<F>(
+        &self,
+        mut cbk: F,
+        addr: u32,
+        buf: &[u8],
+    ) -> Result<(), &'static str>
+    where
+        F: FnMut(WriteEvent) -> bool,
+    {
+        self.wait_not_busy()?;
+
+        const BLOCK_SIZE: usize = 0x100;
+
+        for i in (0..buf.len()).step_by(BLOCK_SIZE) {
+            // write enable
+            let mut wbuf: [u8; 1] = [SpiFlashCmd::WriteEnable.into()];
+            self.drive.transfer(&mut wbuf)?;
+
+            let addr_offset = addr + i as u32;
+
+            if (buf.len() - i) >= BLOCK_SIZE {
+                let mut wbuf: [u8; 4 + BLOCK_SIZE] = [0; 4 + BLOCK_SIZE];
+
+                wbuf[0] = SpiFlashCmd::PageProgram.into();
+                wbuf[1] = (addr_offset >> 16) as u8;
+                wbuf[2] = (addr_offset >> 8) as u8;
+                wbuf[3] = addr_offset as u8;
+                wbuf[4..(4 + BLOCK_SIZE)].copy_from_slice(&buf[i..(i + BLOCK_SIZE)]);
+                self.drive.transfer(&mut wbuf)?;
+                self.wait_not_busy()?;
+
+                if !cbk(WriteEvent::Block(i, BLOCK_SIZE)) {
+                    return Ok(());
+                }
+            } else {
+                let mut wbuf: Vec<u8> = Vec::new();
+                wbuf.extend_from_slice(&[
+                    SpiFlashCmd::PageProgram.into(),
+                    (addr_offset >> 16) as u8,
+                    (addr_offset >> 8) as u8,
+                    addr_offset as u8,
+                ]);
+                wbuf.extend_from_slice(&buf[i..buf.len()]);
+                self.drive.transfer(&mut wbuf)?;
+                self.wait_not_busy()?;
+
+                if cbk(WriteEvent::Block(i, buf.len() - i)) {
+                    return Ok(());
+                }
+            }
+        }
+
+        cbk(WriteEvent::Finish(buf.len()));
         return Ok(());
     }
 }

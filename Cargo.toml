@@ -21,6 +21,7 @@ doc = true
 [dependencies]
 byte-unit = "4.0.14"
 clap = { version = "3.2", features = ["derive"] }
+console = "0.15.1"
 hex = "0.4.3"
 humantime = "2.1.0"
 indicatif = "0.17.1"

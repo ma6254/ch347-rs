@@ -503,6 +503,7 @@ extern "C" {
         iIndex: ULONG,
         iEnableSelect: USHORT,
         iChipSelect: USHORT,
+        iIsAutoDeativeCS: ULONG,
         iActiveDelay: ULONG,
         iDelayDeactive: ULONG,
     );

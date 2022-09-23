@@ -66,7 +66,28 @@ fn parse_winbond_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chi
     }
 }
 
-const JEDEC_ID_LIST: [Vendor; 2] = [
+const JEDEC_ID_LIST: [Vendor; 3] = [
+    Vendor {
+        name: "Eon Silicon",
+        id: 0x1C,
+        parser: |vendor, data| {
+            let memory_type = data.0;
+            let capacity = data.1;
+            // println!("{:02X} {:02X}", memory_type, capacity);
+
+            match memory_type {
+                0x30 => match capacity {
+                    0x16 => Some(Chip {
+                        name: "EN25Q32C",
+                        vendor,
+                        capacity: mb(4),
+                    }),
+                    _ => None,
+                },
+                _ => None,
+            }
+        },
+    },
     Vendor {
         name: "Macronix (MX)",
         id: 0xC2,
