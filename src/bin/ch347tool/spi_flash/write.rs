@@ -39,13 +39,24 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         setp_count += 1;
     }
 
-    let file_buf = match fs::read(args.file.as_str()) {
+    let mut file_buf = match fs::read(args.file.as_str()) {
         Err(e) => {
             println!("{:X?}", e);
             return;
         }
         Ok(f) => f,
     };
+
+    if args.file.to_lowercase().ends_with(".cap") && (file_buf.len() > 0x800) {
+        println!(
+            "{} Detect {} file, will be offset {} address write",
+            console::style("Note:").green(),
+            console::style("ASUS-CAP").green(),
+            console::style("0x800").green(),
+        );
+
+        file_buf = file_buf[0x800..file_buf.len()].to_vec();
+    }
 
     unsafe {
         if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {

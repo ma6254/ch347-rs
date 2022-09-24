@@ -14,12 +14,16 @@ CH347 driver library in Rust
 
 </p>
 
+# Install ch347tool
+
+```bash
+> cargo install ch347_rs
+> ch347_tool -h
+```
+
 # Import
 
-Cargo.toml
-
-```toml
-[dependencies]
-ch347_rs = "0.1.0"
+```bash
+cargo add ch347_rs
 ```
 
