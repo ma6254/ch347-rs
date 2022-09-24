@@ -53,19 +53,18 @@ pub fn cli_spi_flash_check(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashCh
             Ok(chip_info) => chip_info,
         };
 
-        let adjusted_byte =
-            byte_unit::Byte::from_bytes(chip_info.capacity as u128).get_appropriate_unit(true);
-
         println!("ChipInfo:");
         println!("  Manufacturer: {}", chip_info.vendor.name);
         println!("          Name: {}", chip_info.name);
-        println!("      Capacity: {}", adjusted_byte);
+        println!("      Capacity: {}", chip_info.capacity);
+
+        let chip_capacity: usize = chip_info.capacity.into();
 
         let wsize: usize;
-        if file_buf.len() <= chip_info.capacity as usize {
+        if file_buf.len() <= chip_capacity {
             wsize = file_buf.len();
         } else {
-            wsize = chip_info.capacity as usize;
+            wsize = chip_capacity;
         }
 
         // let mut all_buf: Vec<u8> = Vec::new();

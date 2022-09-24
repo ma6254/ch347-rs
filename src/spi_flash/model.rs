@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Debug)]
 pub struct Vendor {
     pub name: &'static str,
@@ -6,65 +8,53 @@ pub struct Vendor {
 }
 
 #[derive(Debug)]
+pub enum Capacity {
+    C80,
+    C16,
+    C32,
+    C64,
+    C128,
+    C256,
+}
+
+impl Into<usize> for Capacity {
+    fn into(self) -> usize {
+        match self {
+            Capacity::C80 => 1024 * 1024 * 1,
+            Capacity::C16 => 1024 * 1024 * 2,
+            Capacity::C32 => 1024 * 1024 * 4,
+            Capacity::C64 => 1024 * 1024 * 8,
+            Capacity::C128 => 1024 * 1024 * 16,
+            Capacity::C256 => 1024 * 1024 * 32,
+        }
+    }
+}
+
+impl fmt::Display for Capacity {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Capacity::C80 => "1 MB",
+                Capacity::C16 => "2 MB",
+                Capacity::C32 => "4 MB",
+                Capacity::C64 => "8 MB",
+                Capacity::C128 => "16 MB",
+                Capacity::C256 => "32 MB",
+            }
+        )
+    }
+}
+
+#[derive(Debug)]
 pub struct Chip {
     pub name: &'static str,
     pub vendor: &'static Vendor,
-    pub capacity: u32,
+    pub capacity: Capacity,
 }
 
 type JedecIdParser = fn(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip>;
-
-fn parse_macronix_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
-    let memory_type = data.0;
-    let capacity = data.1;
-    // println!("{:02X} {:02X}", memory_type, capacity);
-
-    match memory_type {
-        0x20 => match capacity {
-            0x19 => Some(Chip {
-                name: "MX25L256",
-                vendor,
-                capacity: mb(32),
-            }),
-            _ => None,
-        },
-        _ => None,
-    }
-}
-
-fn mb(a: u32) -> u32 {
-    byte_unit::n_mib_bytes!(a as u128) as u32
-}
-
-fn parse_winbond_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
-    let memory_type = data.0;
-    let capacity = data.1;
-
-    match memory_type {
-        0x40 => match capacity {
-            0x14 => Some(Chip {
-                name: "W25Q80",
-                vendor,
-                capacity: mb(1),
-            }),
-            0x15 => Some(Chip {
-                name: "W25Q16",
-                vendor,
-                capacity: mb(2),
-            }),
-            0x16 => Some(Chip {
-                name: "W25Q32",
-                vendor,
-                capacity: mb(4),
-            }),
-            _ => None,
-        },
-        0x60 => match capacity {
-            _ => None,
-        },
-        _ => None,
-    }
-}
 
 const JEDEC_ID_LIST: [Vendor; 3] = [
     Vendor {
@@ -80,7 +70,7 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
                     0x16 => Some(Chip {
                         name: "EN25Q32C",
                         vendor,
-                        capacity: mb(4),
+                        capacity: Capacity::C32,
                     }),
                     _ => None,
                 },
@@ -91,12 +81,56 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
     Vendor {
         name: "Macronix (MX)",
         id: 0xC2,
-        parser: parse_macronix_jedec_id,
+        parser: |vendor, data| {
+            let memory_type = data.0;
+            let capacity = data.1;
+            // println!("{:02X} {:02X}", memory_type, capacity);
+
+            match memory_type {
+                0x20 => match capacity {
+                    0x19 => Some(Chip {
+                        name: "MX25L256",
+                        vendor,
+                        capacity: Capacity::C256,
+                    }),
+                    _ => None,
+                },
+                _ => None,
+            }
+        },
     },
     Vendor {
         name: "Winbond (ex Nexcom) serial flashes",
         id: 0xEF,
-        parser: parse_winbond_jedec_id,
+        parser: |vendor, data| {
+            let memory_type = data.0;
+            let capacity = data.1;
+
+            match memory_type {
+                0x40 => match capacity {
+                    0x14 => Some(Chip {
+                        name: "W25Q80",
+                        vendor,
+                        capacity: Capacity::C80,
+                    }),
+                    0x15 => Some(Chip {
+                        name: "W25Q16",
+                        vendor,
+                        capacity: Capacity::C16,
+                    }),
+                    0x16 => Some(Chip {
+                        name: "W25Q32",
+                        vendor,
+                        capacity: Capacity::C32,
+                    }),
+                    _ => None,
+                },
+                0x60 => match capacity {
+                    _ => None,
+                },
+                _ => None,
+            }
+        },
     },
 ];
 

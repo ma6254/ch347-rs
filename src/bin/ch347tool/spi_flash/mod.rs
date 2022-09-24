@@ -2,6 +2,7 @@ mod check;
 mod detect;
 mod erase;
 mod read;
+mod utils;
 mod write;
 
 use clap::{Parser, Subcommand, ValueEnum};

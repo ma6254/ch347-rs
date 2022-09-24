@@ -9,6 +9,8 @@ use std::{
 use clap::Parser;
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 
+use super::utils::{format_byte_per_sec, format_byte_unit};
+
 #[derive(Parser, Clone, Debug)]
 #[clap(about = "Write spi flash chip")]
 pub struct CmdSpiFlashWrite {
@@ -100,19 +102,26 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         Ok(chip_info) => chip_info,
     };
 
-    let adjusted_byte =
-        byte_unit::Byte::from_bytes(chip_info.capacity as u128).get_appropriate_unit(true);
-
     println!("ChipInfo:");
     println!("  Manufacturer: {}", chip_info.vendor.name);
     println!("          Name: {}", chip_info.name);
-    println!("      Capacity: {}", adjusted_byte);
+    println!("      Capacity: {}", chip_info.capacity);
+
+    let chip_capacity: usize = chip_info.capacity.into();
 
     let wsize: usize;
-    if file_buf.len() <= chip_info.capacity as usize {
+    if file_buf.len() <= chip_capacity {
         wsize = file_buf.len();
     } else {
-        wsize = chip_info.capacity as usize;
+        wsize = chip_capacity;
+    }
+
+    if file_buf.len() > chip_capacity {
+        println!(
+            "{} File size is too large, the last {} will be lost",
+            console::style("Warn:").yellow(),
+            console::style(format_byte_unit(file_buf.len() - chip_capacity)).yellow(),
+        );
     }
 
     if args.erase {
@@ -248,19 +257,7 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
     let take_time = Duration::from_millis(take_time as u64);
 
     let speed = (wsize as f64) / take_time.as_secs_f64();
-    let speed_str = if speed < (1024.0) {
-        format!("{:.2} B/S ", (wsize as f64) / take_time.as_secs_f64())
-    } else if speed < (1024.0 * 1024.0) {
-        format!(
-            "{:.2} KB/S ",
-            (wsize as f64) / take_time.as_secs_f64() / 1024.0
-        )
-    } else {
-        format!(
-            "{:.2} MB/S ",
-            (wsize as f64) / take_time.as_secs_f64() / 1024.0 / 1024.0
-        )
-    };
+    let speed_str = format_byte_per_sec(speed);
 
     println!(
         "{} Write done, Take time: {} Speed: {}",

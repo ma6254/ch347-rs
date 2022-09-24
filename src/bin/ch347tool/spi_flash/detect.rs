@@ -42,13 +42,10 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
             Ok(chip_info) => chip_info,
         };
 
-        let adjusted_byte =
-            byte_unit::Byte::from_bytes(chip_info.capacity as u128).get_appropriate_unit(true);
-
         println!("ChipInfo:");
         println!("  Manufacturer: {}", chip_info.vendor.name);
         println!("          Name: {}", chip_info.name);
-        println!("      Capacity: {}", adjusted_byte);
+        println!("      Capacity: {}", chip_info.capacity);
     }
 
     unsafe {
