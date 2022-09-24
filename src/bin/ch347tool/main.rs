@@ -21,7 +21,7 @@ enum Commands {
     Info,
     Spi,
     SpiFlash(spi_flash::CmdSpiFlash),
-    I2cDelect(i2c::CmdI2cDelect),
+    I2cDetect(i2c::CmdI2cDetect),
     I2cDump(i2c::CmdI2cDump),
     Gpio(gpio::CmdGpio),
 }
@@ -31,7 +31,7 @@ fn main() {
     match &cli.command {
         Commands::List(args) => list::cli_list_device(args),
         Commands::Gpio(args) => gpio::cli_operator_gpio(args),
-        Commands::I2cDelect(args) => i2c::cli_i2c_delect(args),
+        Commands::I2cDetect(args) => i2c::cli_i2c_detect(args),
         Commands::I2cDump(args) => i2c::cli_i2c_dump(args),
         Commands::SpiFlash(args) => spi_flash::cli_spi_flash(args),
         _ => {

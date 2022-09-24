@@ -66,7 +66,7 @@ pub struct SpiFlash<T: SpiDrive> {
 }
 
 #[derive(Debug)]
-pub enum DelectErr {
+pub enum DetectErr {
     UnknowManufacturerID(u8),
     Other(&'static str),
 }
@@ -76,11 +76,11 @@ impl<T: SpiDrive> SpiFlash<T> {
         SpiFlash { drive: drive }
     }
 
-    pub fn delect(&self) -> Result<Chip, DelectErr> {
+    pub fn detect(&self) -> Result<Chip, DetectErr> {
         let mut wbuf: [u8; 4] = [SpiFlashCmd::JedecId.into(), 0x00, 0x00, 0x00];
 
         if let Err(e) = self.drive.transfer(&mut wbuf) {
-            return Err(DelectErr::Other(e));
+            return Err(DetectErr::Other(e));
         }
 
         let jedec_id = &wbuf[1..4];
@@ -90,7 +90,7 @@ impl<T: SpiDrive> SpiFlash<T> {
 
         let chip_info = match parse_jedec_id(jedec_id) {
             None => {
-                return Err(DelectErr::UnknowManufacturerID(manufacturer_id));
+                return Err(DetectErr::UnknowManufacturerID(manufacturer_id));
             }
             Some(chip_info) => chip_info,
         };

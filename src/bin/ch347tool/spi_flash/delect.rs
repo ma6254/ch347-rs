@@ -3,9 +3,9 @@ use clap::Parser;
 
 #[derive(Parser, Clone, Debug)]
 #[clap(about = "Detects spi flash chip model")]
-pub struct CmdSpiFlashDelect {}
+pub struct CmdSpiFlashDetect {}
 
-pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlashDelect) {
+pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlashDetect) {
     unsafe {
         if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
             return;
@@ -30,11 +30,11 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
 
         let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
 
-        if let Err(e) = device.delect() {
+        if let Err(e) = device.detect() {
             println!("{:X?}", e);
         }
 
-        let chip_info = match device.delect() {
+        let chip_info = match device.detect() {
             Err(e) => {
                 println!("{:X?}", e);
                 return;

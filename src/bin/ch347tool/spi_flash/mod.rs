@@ -33,7 +33,7 @@ enum CS {
 
 #[derive(Subcommand, Debug)]
 pub enum Commands {
-    Delect(delect::CmdSpiFlashDelect),
+    Detect(delect::CmdSpiFlashDetect),
     Erase(erase::CmdSpiFlashErase),
     Write(write::CmdSpiFlashWrite),
     Read(read::CmdSpiFlashRead),
@@ -42,7 +42,7 @@ pub enum Commands {
 
 pub fn cli_spi_flash(args: &CmdSpiFlash) {
     match &args.command {
-        Commands::Delect(sub_args) => delect::cli_spi_flash_detect(args, sub_args),
+        Commands::Detect(sub_args) => delect::cli_spi_flash_detect(args, sub_args),
         Commands::Erase(sub_args) => erase::cli_spi_flash_erase(args, sub_args),
         Commands::Write(sub_args) => write::cli_spi_flash_write(args, sub_args),
         Commands::Read(sub_args) => read::cli_spi_flash_read(args, sub_args),

@@ -139,7 +139,7 @@ pub fn set_notify_callback(
     }
 }
 
-pub fn i2c_device_delect(device_index: u32, i2c_dev_addr: u8) -> bool {
+pub fn i2c_device_detect(device_index: u32, i2c_dev_addr: u8) -> bool {
     unsafe {
         let mut wbuf: [u8; 1] = [i2c_dev_addr << 1];
         if CH347StreamI2C(

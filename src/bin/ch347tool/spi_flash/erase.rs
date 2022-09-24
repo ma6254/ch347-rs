@@ -42,7 +42,7 @@ pub fn cli_spi_flash_erase(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlashE
     }
 
     let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
-    let chip_info = match device.delect() {
+    let chip_info = match device.detect() {
         Err(e) => {
             println!("{:X?}", e);
             return;

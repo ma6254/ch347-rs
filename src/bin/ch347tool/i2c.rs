@@ -28,7 +28,7 @@ impl fmt::Display for I2cSpeed {
 
 #[derive(Parser, Debug)]
 #[clap(about = "Detects all device address on the I2C bus")]
-pub struct CmdI2cDelect {
+pub struct CmdI2cDetect {
     /// device number
     #[clap(value_parser)]
     index: u32,
@@ -39,7 +39,7 @@ pub struct CmdI2cDelect {
     speed_level: I2cSpeed,
 }
 
-pub fn cli_i2c_delect(args: &CmdI2cDelect) {
+pub fn cli_i2c_detect(args: &CmdI2cDetect) {
     println!("speed: {}", args.speed_level);
 
     unsafe {
@@ -72,7 +72,7 @@ pub fn cli_i2c_delect(args: &CmdI2cDelect) {
                 continue;
             }
 
-            if ch347_rs::i2c_device_delect(args.index, y * 0x10 + x) {
+            if ch347_rs::i2c_device_detect(args.index, y * 0x10 + x) {
                 s.push_str(&format!(" {:02X}", y * 0x10 + x));
                 continue;
             }
