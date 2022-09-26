@@ -10,6 +10,7 @@ pub struct CmdSpiFlashErase {}
 pub fn cli_spi_flash_erase(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlashErase) {
     unsafe {
         if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
+            println!("CH347OpenDevice Fail");
             return;
         }
     }

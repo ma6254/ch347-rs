@@ -1,10 +1,24 @@
+mod eon_silicon;
+mod winbond;
+
 use std::fmt;
 
-#[derive(Debug)]
+use super::{Register, SpiDrive, SpiFlash, StatusRegister};
+
+type JedecIdParser = fn(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip>;
+
+type UidReader = fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str>;
+
+type SregReader =
+    fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Box<dyn StatusRegister>, &'static str>;
+
+// #[derive(Debug)]
 pub struct Vendor {
     pub name: &'static str,
     pub id: u8,
     pub parser: JedecIdParser,
+    pub uid_reader: Option<UidReader>,
+    pub sreg_reader: Option<SregReader>,
 }
 
 #[derive(Debug)]
@@ -47,14 +61,12 @@ impl fmt::Display for Capacity {
     }
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct Chip {
     pub name: &'static str,
     pub vendor: &'static Vendor,
     pub capacity: Capacity,
 }
-
-type JedecIdParser = fn(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip>;
 
 const JEDEC_ID_LIST: [Vendor; 3] = [
     Vendor {
@@ -77,6 +89,8 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
                 _ => None,
             }
         },
+        uid_reader: Some(eon_silicon::uid_reader),
+        sreg_reader: None,
     },
     Vendor {
         name: "Macronix (MX)",
@@ -98,39 +112,17 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
                 _ => None,
             }
         },
+        uid_reader: None,
+        sreg_reader: None,
     },
     Vendor {
         name: "Winbond (ex Nexcom) serial flashes",
         id: 0xEF,
-        parser: |vendor, data| {
-            let memory_type = data.0;
-            let capacity = data.1;
-
-            match memory_type {
-                0x40 => match capacity {
-                    0x14 => Some(Chip {
-                        name: "W25Q80",
-                        vendor,
-                        capacity: Capacity::C80,
-                    }),
-                    0x15 => Some(Chip {
-                        name: "W25Q16",
-                        vendor,
-                        capacity: Capacity::C16,
-                    }),
-                    0x16 => Some(Chip {
-                        name: "W25Q32",
-                        vendor,
-                        capacity: Capacity::C32,
-                    }),
-                    _ => None,
-                },
-                0x60 => match capacity {
-                    _ => None,
-                },
-                _ => None,
-            }
-        },
+        parser: winbond::parse_jedec_id,
+        uid_reader: Some(winbond::uid_reader),
+        // uid_reader: None,
+        sreg_reader: Some(winbond::sreg_reader),
+        // sreg_reader: None,
     },
 ];
 

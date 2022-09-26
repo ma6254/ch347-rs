@@ -1,4 +1,5 @@
 use super::*;
+use std::ops::Range;
 
 pub enum SpiFlashCmd {
     JedecId,
@@ -16,13 +17,6 @@ pub enum SpiFlashCmd {
     // read
     ReadData,
 }
-
-pub enum WriteEvent {
-    Block(usize, usize),
-    Finish(usize),
-}
-
-pub type WriteEventFn = fn(e: WriteEvent);
 
 impl Into<u8> for SpiFlashCmd {
     fn into(self) -> u8 {
@@ -45,6 +39,13 @@ impl Into<u8> for SpiFlashCmd {
     }
 }
 
+pub enum WriteEvent {
+    Block(usize, usize),
+    Finish(usize),
+}
+
+pub type WriteEventFn = fn(e: WriteEvent);
+
 #[derive(Debug)]
 pub struct StatusRes {
     pub busy: bool,
@@ -61,8 +62,8 @@ impl From<u8> for StatusRes {
     }
 }
 
-pub struct SpiFlash<T: SpiDrive> {
-    drive: T,
+pub struct SpiFlash<T: SpiDrive + ?Sized> {
+    pub drive: T,
 }
 
 #[derive(Debug)]
@@ -71,7 +72,7 @@ pub enum DetectErr {
     Other(&'static str),
 }
 
-impl<T: SpiDrive> SpiFlash<T> {
+impl<T: SpiDrive + 'static> SpiFlash<T> {
     pub fn new(drive: T) -> SpiFlash<T> {
         SpiFlash { drive: drive }
     }
@@ -94,6 +95,39 @@ impl<T: SpiDrive> SpiFlash<T> {
             }
             Some(chip_info) => chip_info,
         };
+
+        return Ok(chip_info);
+    }
+
+    pub fn read_uuid(&self, vendor: &Vendor) -> Result<Vec<u8>, &'static str> {
+        match vendor.uid_reader {
+            None => return Err("Not supported"),
+            Some(uid_parser) => {
+                return uid_parser(self);
+                // return Ok(&[0x00, 0x00]);
+            }
+        }
+    }
+
+    pub fn read_status_register(
+        &self,
+        vendor: &Vendor,
+    ) -> Result<Box<dyn StatusRegister>, &'static str> {
+        match vendor.sreg_reader {
+            None => return Err("Not supported"),
+            Some(sreg_reader) => {
+                return sreg_reader(self);
+            }
+        }
+    }
+
+    pub fn detect_and_print(&self) -> Result<Chip, DetectErr> {
+        let chip_info = self.detect()?;
+
+        println!("ChipInfo:");
+        println!("  Manufacturer: {}", chip_info.vendor.name);
+        println!("          Name: {}", chip_info.name);
+        println!("      Capacity: {}", chip_info.capacity);
 
         return Ok(chip_info);
     }
@@ -210,4 +244,42 @@ impl<T: SpiDrive> SpiFlash<T> {
         cbk(WriteEvent::Finish(buf.len()));
         return Ok(());
     }
+}
+
+pub struct Register {
+    pub bits: Range<usize>,
+}
+
+impl Register {
+    pub fn new(bits: Range<usize>) -> Register {
+        Register { bits }
+    }
+
+    pub fn new_bit(bit: usize) -> Register {
+        Register { bits: bit..bit + 1 }
+    }
+
+    pub fn read(self, buf: &[u8]) -> u32 {
+        read_reg_bits(buf, self.bits)
+    }
+
+    pub fn bit_width(&self) -> usize {
+        self.bits.len()
+    }
+}
+
+pub fn read_reg_bits(buf: &[u8], bits: Range<usize>) -> u32 {
+    let mut ret = 0;
+
+    for i in bits {
+        let buf_index = i / 8;
+        let bit_index = i % 8;
+
+        ret <<= 1;
+        if buf[buf_index] & (1 << bit_index) != 0 {
+            ret |= 1;
+        }
+    }
+
+    return ret;
 }

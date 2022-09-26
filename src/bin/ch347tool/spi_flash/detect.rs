@@ -8,6 +8,7 @@ pub struct CmdSpiFlashDetect {}
 pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlashDetect) {
     unsafe {
         if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
+            println!("CH347OpenDevice Fail");
             return;
         }
     }
@@ -30,10 +31,6 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
 
         let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
 
-        if let Err(e) = device.detect() {
-            println!("{:X?}", e);
-        }
-
         let chip_info = match device.detect() {
             Err(e) => {
                 println!("{:X?}", e);
@@ -46,6 +43,22 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
         println!("  Manufacturer: {}", chip_info.vendor.name);
         println!("          Name: {}", chip_info.name);
         println!("      Capacity: {}", chip_info.capacity);
+        println!(
+            "           UID: {}",
+            match device.read_uuid(chip_info.vendor) {
+                Err(e) => format!("{}", e),
+                Ok(chip_uuid) => format!("{} Bit {:02X?}", chip_uuid.len() * 8, chip_uuid),
+            }
+        );
+
+        // let sreg = match device.read_status_register(chip_info.vendor) {
+        //     Err(e) => {
+        //         println!("{:X?}", e);
+        //         return;
+        //     }
+        //     Ok(a) => a,
+        // };
+        // println!("{}", sreg);
     }
 
     unsafe {

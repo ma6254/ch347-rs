@@ -24,6 +24,7 @@ pub fn cli_spi_flash_check(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashCh
 
     unsafe {
         if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
+            println!("CH347OpenDevice Fail");
             return;
         }
     }

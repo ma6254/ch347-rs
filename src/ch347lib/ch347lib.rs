@@ -176,7 +176,7 @@ pub fn enum_ch347_device() -> Vec<Ch347Device> {
 
 impl Ch347Device {
     pub fn new(index: u32) -> Ch347Device {
-        Ch347Device { index: index }
+        Ch347Device { index }
     }
 
     pub fn spi_flash(self) -> SpiFlash<Ch347Device> {
