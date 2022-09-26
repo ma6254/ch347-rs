@@ -78,13 +78,17 @@ pub enum SRegDef {
     Busy,
     WriteEnable,
     BlockProtect,
+    TopBottomProtect,
+    StatusRegProtect,
+    StatusRegProtect1,
     QuadEnable,
-}
-
-impl fmt::Display for SRegDef {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
+    SecurityRegisterLock,
+    ComplementProtect,
+    SuspendStatus,
+    CurrentAddressMode,
+    PowerUpAddressMode,
+    WriteProtectSelection,
+    OutputDriverStrength,
 }
 
 impl SRegDef {
@@ -103,15 +107,31 @@ impl SRegDef {
 
     pub fn reg_def(&self) -> Register {
         match self {
-            SRegDef::Busy => Register::new_bit(1),
-            SRegDef::WriteEnable => Register::new_bit(2),
-            SRegDef::BlockProtect => Register::new(3..7),
+            SRegDef::Busy => Register::new_bit(0),
+            SRegDef::WriteEnable => Register::new_bit(1),
+            SRegDef::BlockProtect => Register::new(2..6),
+            SRegDef::TopBottomProtect => Register::new_bit(6),
+            SRegDef::StatusRegProtect => Register::new_bit(7),
+            SRegDef::StatusRegProtect1 => Register::new_bit(8),
             SRegDef::QuadEnable => Register::new_bit(9),
+            SRegDef::SecurityRegisterLock => Register::new(11..14),
+            SRegDef::ComplementProtect => Register::new_bit(14),
+            SRegDef::SuspendStatus => Register::new_bit(15),
+            SRegDef::CurrentAddressMode => Register::new_bit(16),
+            SRegDef::PowerUpAddressMode => Register::new_bit(17),
+            SRegDef::WriteProtectSelection => Register::new_bit(18),
+            SRegDef::OutputDriverStrength => Register::new(21..23),
         }
     }
 
-    pub fn parse(self, buf: &[u8]) -> u32 {
-        self.reg_def().read(buf)
+    // pub fn parse(self, buf: &[u8]) -> u32 {
+    //     self.reg_def().read(buf)
+    // }
+}
+
+impl fmt::Display for SRegDef {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self)
     }
 }
 
@@ -140,60 +160,7 @@ impl StatusRegister for SREG {
     }
 }
 
-impl SREG {
-    pub fn parse_reg(&self, s: SRegDef) -> u32 {
-        s.parse(&self.raw_data)
-    }
-
-    pub fn busy(&self) -> bool {
-        self.raw_data[0] & 0b0000_0001 != 0
-    }
-
-    pub fn write_enable(&self) -> bool {
-        self.raw_data[0] & 0b0000_0010 != 0
-    }
-
-    pub fn block_protect(&self) -> (bool, bool, bool, bool) {
-        (
-            self.raw_data[0] & 0b0000_0100 != 0,
-            self.raw_data[0] & 0b0000_1000 != 0,
-            self.raw_data[0] & 0b0001_0000 != 0,
-            self.raw_data[0] & 0b0010_0000 != 0,
-        )
-    }
-
-    pub fn top_bottom_protect(&self) -> bool {
-        self.raw_data[0] & 0b0100_0000 != 0
-    }
-
-    pub fn status_reg_protect(&self) -> bool {
-        self.raw_data[0] & 0b1000_0000 != 0
-    }
-
-    pub fn status_reg_protect1(&self) -> bool {
-        self.raw_data[1] & 0b0000_0001 != 0
-    }
-
-    pub fn quad_enable(&self) -> bool {
-        self.raw_data[1] & 0b0000_0010 != 0
-    }
-
-    pub fn suspend_status(&self) -> bool {
-        self.raw_data[1] & 0b1000_0000 != 0
-    }
-
-    pub fn current_address_mode(&self) -> bool {
-        self.raw_data[2] & 0b0000_0001 != 0
-    }
-
-    pub fn power_up_address_mode(&self) -> bool {
-        self.raw_data[2] & 0b0000_0010 != 0
-    }
-
-    pub fn write_protect_selection(&self) -> bool {
-        self.raw_data[2] & 0b0000_0100 != 0
-    }
-}
+impl SREG {}
 
 impl fmt::Display for SREG {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
@@ -212,53 +179,6 @@ impl fmt::Display for SREG {
                 bit_width,
             )?;
         }
-
-        write!(f, "[ 0'1] Busy: {}\r\n", self.parse_reg(SRegDef::Busy))?;
-        write!(
-            f,
-            "[ 1'1] WriteEnable: {:01b}\r\n",
-            self.parse_reg(SRegDef::WriteEnable)
-        )?;
-
-        write!(f, "  [ 0'1] Busy: {}\r\n", self.busy())?;
-        write!(f, "  [ 1'1] WriteEnable: {}\r\n", self.write_enable())?;
-        write!(
-            f,
-            "  [ 2'4] BlockProtect(0~3): {:?}\r\n",
-            self.block_protect()
-        )?;
-        write!(
-            f,
-            "  [ 6'1] Top/Bottom Protect: {}\r\n",
-            self.top_bottom_protect()
-        )?;
-        write!(
-            f,
-            "  [ 7'1] SatusReg Protect: {}\r\n",
-            self.status_reg_protect()
-        )?;
-        write!(
-            f,
-            "  [ 8'1] SatusReg Protect 1: {}\r\n",
-            self.status_reg_protect1()
-        )?;
-        write!(f, "  [ 9'1] Quad Enable: {}\r\n", self.quad_enable())?;
-        write!(f, "  [15'1] Suspend Status: {}\r\n", self.suspend_status())?;
-        write!(
-            f,
-            "  [16'1] Current Address Mode: {}\r\n",
-            self.current_address_mode()
-        )?;
-        write!(
-            f,
-            "  [17'1] Power Up Address Mode: {}\r\n",
-            self.power_up_address_mode()
-        )?;
-        write!(
-            f,
-            "  [18'1] Write Protect Selection: {}\r\n",
-            self.write_protect_selection()
-        )?;
 
         write!(f, "{}", "")
     }

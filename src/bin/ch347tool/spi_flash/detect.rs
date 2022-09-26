@@ -51,14 +51,14 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
             }
         );
 
-        // let sreg = match device.read_status_register(chip_info.vendor) {
-        //     Err(e) => {
-        //         println!("{:X?}", e);
-        //         return;
-        //     }
-        //     Ok(a) => a,
-        // };
-        // println!("{}", sreg);
+        let sreg = match device.read_status_register(chip_info.vendor) {
+            Err(e) => {
+                println!("{:X?}", e);
+                return;
+            }
+            Ok(a) => a,
+        };
+        println!("{}", sreg);
     }
 
     unsafe {
