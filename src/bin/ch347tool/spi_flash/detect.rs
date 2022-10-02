@@ -50,15 +50,6 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
                 Ok(chip_uuid) => format!("{} Bit {:02X?}", chip_uuid.len() * 8, chip_uuid),
             }
         );
-
-        let sreg = match device.read_status_register(chip_info.vendor) {
-            Err(e) => {
-                println!("{:X?}", e);
-                return;
-            }
-            Ok(a) => a,
-        };
-        println!("{}", sreg);
     }
 
     unsafe {

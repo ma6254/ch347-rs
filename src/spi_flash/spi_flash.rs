@@ -100,25 +100,14 @@ impl<T: SpiDrive + 'static> SpiFlash<T> {
     }
 
     pub fn read_uuid(&self, vendor: &Vendor) -> Result<Vec<u8>, &'static str> {
-        match vendor.uid_reader {
-            None => return Err("Not supported"),
-            Some(uid_parser) => {
-                return uid_parser(self);
-                // return Ok(&[0x00, 0x00]);
-            }
-        }
+        return vendor.read_uid(self);
     }
 
     pub fn read_status_register(
         &self,
-        vendor: &Vendor,
+        _vendor: &Vendor,
     ) -> Result<Box<dyn StatusRegister>, &'static str> {
-        match vendor.sreg_reader {
-            None => return Err("Not supported"),
-            Some(sreg_reader) => {
-                return sreg_reader(self);
-            }
-        }
+        return Err("Not supported");
     }
 
     pub fn detect_and_print(&self) -> Result<Chip, DetectErr> {
@@ -246,40 +235,133 @@ impl<T: SpiDrive + 'static> SpiFlash<T> {
     }
 }
 
-pub struct Register {
-    pub bits: Range<usize>,
+pub type RegReader = fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<RegReadRet, &'static str>;
+
+pub enum RegLen {
+    One,
+    Muti(usize),
 }
 
-impl Register {
-    pub fn new(bits: Range<usize>) -> Register {
-        Register { bits }
-    }
-
-    pub fn new_bit(bit: usize) -> Register {
-        Register { bits: bit..bit + 1 }
-    }
-
-    pub fn read(self, buf: &[u8]) -> u32 {
-        read_reg_bits(buf, self.bits)
-    }
-
-    pub fn bit_width(&self) -> usize {
-        self.bits.len()
-    }
+#[derive(Debug)]
+pub enum RegReadRet {
+    One(u8),
+    Muti(Vec<u8>),
 }
 
-pub fn read_reg_bits(buf: &[u8], bits: Range<usize>) -> u32 {
-    let mut ret = 0;
+pub struct Register<'a> {
+    // pub bits: Range<usize>,
+    pub name: &'static str,
+    pub addr: u8,
+    pub items: Option<&'a [RegisterItem]>,
+    pub reader: RegReader,
+}
 
-    for i in bits {
-        let buf_index = i / 8;
-        let bit_index = i % 8;
+pub struct RegisterItem {
+    pub name: &'static str,
+    pub alias: &'static [&'static str],
+    pub describe: &'static str,
+    pub offset: u8,
+    pub width: u8,
+    pub access: RegisterAccess,
+}
 
-        ret <<= 1;
-        if buf[buf_index] & (1 << bit_index) != 0 {
-            ret |= 1;
+#[derive(Default)]
+pub enum RegisterAccess {
+    #[default]
+    ReadOnly,
+    ReadWriteVolatile,
+    ReadWrite,
+    ReadWriteOTP,
+}
+
+// impl Register {
+//     pub fn new(bits: Range<usize>) -> Register {
+//         Register { bits }
+//     }
+
+//     pub fn new_bit(bit: usize) -> Register {
+//         Register { bits: bit..bit + 1 }
+//     }
+
+//     pub fn read(self, buf: &[u8]) -> u32 {
+//         read_reg_bits(buf, self.bits)
+//     }
+
+//     pub fn bit_width(&self) -> usize {
+//         self.bits.len()
+//     }
+// }
+
+pub struct RegisterRead<'a> {
+    buf: &'a [u8],
+}
+
+impl<'a> RegisterRead<'_> {
+    pub fn new(buf: &'a [u8]) -> RegisterRead {
+        RegisterRead { buf }
+    }
+
+    pub fn read_bit(&self, bit: usize) -> Result<bool, &'static str> {
+        let buf_index = bit / 8;
+        let bit_index = bit % 8;
+
+        let ret = if self.buf[buf_index] & (1 << bit_index) != 0 {
+            true
+        } else {
+            false
+        };
+
+        return Ok(ret);
+    }
+
+    pub fn read_bits(&self, bits: Range<usize>) -> Result<Vec<bool>, &'static str> {
+        let mut ret = Vec::new();
+
+        for i in bits {
+            let buf_index = i / 8;
+            let bit_index = i % 8;
+
+            let b = if self.buf[buf_index] & (1 << bit_index) != 0 {
+                true
+            } else {
+                false
+            };
+
+            ret.push(b);
         }
+
+        Ok(ret)
     }
 
-    return ret;
+    pub fn read_bytes(&self, bits: Range<usize>) -> Result<Vec<u8>, &'static str> {
+        let mut ret = Vec::new();
+        let mut b: u8 = 0;
+
+        let bit_width = if bits.start > bits.end {
+            bits.start - bits.end
+        } else {
+            bits.end - bits.start
+        };
+
+        for (k, i) in bits.enumerate() {
+            let buf_index = i / 8;
+            let bit_index = i % 8;
+
+            b <<= 1;
+            if self.buf[buf_index] & (1 << bit_index) != 0 {
+                b |= 1;
+            }
+
+            if (k != 0) && (k % 8 == 0) {
+                ret.push(b);
+                b = 0;
+            }
+        }
+
+        if (bit_width % 8) != 0 {
+            ret.push(b);
+        }
+
+        Ok(ret)
+    }
 }

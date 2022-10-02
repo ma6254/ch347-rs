@@ -20,7 +20,8 @@ doc = true
 
 [dependencies]
 clap = { version = "3.2", features = ["derive"] }
-console = "0.15.1"
+cli-table = "0.4.7"
+console = "0.15"
 hex = "0.4.3"
 humantime = "2.1.0"
 indicatif = "0.17.1"
@@ -28,8 +29,6 @@ libc = "0.2"
 serde ={ version= "1.0", features = ["derive"] }
 serde_json = "1.0"
 shadow-rs = "0.16.3"
-strum = "0.24.1"
-strum_macros = "0.24.3"
 
 [build-dependencies]
 shadow-rs = "0.16.3"

@@ -1,24 +1,46 @@
 mod eon_silicon;
+mod macronix;
 mod winbond;
 
 use std::fmt;
 
-use super::{Register, SpiDrive, SpiFlash, StatusRegister};
+use super::{RegReadRet, Register, RegisterAccess, RegisterItem, SpiDrive, SpiFlash};
 
 type JedecIdParser = fn(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip>;
 
-type UidReader = fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str>;
-
-type SregReader =
-    fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Box<dyn StatusRegister>, &'static str>;
-
 // #[derive(Debug)]
-pub struct Vendor {
+pub struct Vendor<'a> {
     pub name: &'static str,
     pub id: u8,
     pub parser: JedecIdParser,
-    pub uid_reader: Option<UidReader>,
-    pub sreg_reader: Option<SregReader>,
+    pub reg_defines: Option<&'a [Register<'a>]>,
+}
+
+impl<'a> Vendor<'_> {
+    pub fn read_uid(&self, spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str> {
+        if let None = self.reg_defines {
+            return Err("Not define Registers");
+        }
+
+        let result = self
+            .reg_defines
+            .unwrap()
+            .iter()
+            .find(|&item| item.name.eq("unique_id"));
+
+        if let None = result {
+            return Err("Not support Unique ID");
+        }
+        let result = result.unwrap();
+
+        let result = (result.reader)(spi_flash)?;
+
+        if let RegReadRet::Muti(buf) = result {
+            return Ok(buf);
+        }
+
+        panic!();
+    }
 }
 
 #[derive(Debug)]
@@ -64,7 +86,7 @@ impl fmt::Display for Capacity {
 // #[derive(Debug)]
 pub struct Chip {
     pub name: &'static str,
-    pub vendor: &'static Vendor,
+    pub vendor: &'static Vendor<'static>,
     pub capacity: Capacity,
 }
 
@@ -72,57 +94,20 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
     Vendor {
         name: "Eon Silicon",
         id: 0x1C,
-        parser: |vendor, data| {
-            let memory_type = data.0;
-            let capacity = data.1;
-            // println!("{:02X} {:02X}", memory_type, capacity);
-
-            match memory_type {
-                0x30 => match capacity {
-                    0x16 => Some(Chip {
-                        name: "EN25Q32C",
-                        vendor,
-                        capacity: Capacity::C32,
-                    }),
-                    _ => None,
-                },
-                _ => None,
-            }
-        },
-        uid_reader: Some(eon_silicon::uid_reader),
-        sreg_reader: None,
+        parser: eon_silicon::parse_jedec_id,
+        reg_defines: Some(&eon_silicon::REGISTER_DEFINES),
     },
     Vendor {
         name: "Macronix (MX)",
         id: 0xC2,
-        parser: |vendor, data| {
-            let memory_type = data.0;
-            let capacity = data.1;
-            // println!("{:02X} {:02X}", memory_type, capacity);
-
-            match memory_type {
-                0x20 => match capacity {
-                    0x19 => Some(Chip {
-                        name: "MX25L256",
-                        vendor,
-                        capacity: Capacity::C256,
-                    }),
-                    _ => None,
-                },
-                _ => None,
-            }
-        },
-        uid_reader: None,
-        sreg_reader: None,
+        parser: macronix::parse_jedec_id,
+        reg_defines: Some(&macronix::REGISTER_DEFINES),
     },
     Vendor {
         name: "Winbond (ex Nexcom) serial flashes",
         id: 0xEF,
         parser: winbond::parse_jedec_id,
-        uid_reader: Some(winbond::uid_reader),
-        // uid_reader: None,
-        sreg_reader: Some(winbond::sreg_reader),
-        // sreg_reader: None,
+        reg_defines: Some(&winbond::REGISTER_DEFINES),
     },
 ];
 

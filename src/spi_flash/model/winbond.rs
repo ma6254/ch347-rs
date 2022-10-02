@@ -1,28 +1,4 @@
-use super::{Capacity, Chip, Register, SpiDrive, SpiFlash, StatusRegister, Vendor};
-use std::fmt;
-
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
-
-pub enum SpiFlashCmd {
-    // status
-    ReadStatus2,
-    ReadStatus3,
-    // read
-    ReadUniqueID,
-}
-
-impl Into<u8> for SpiFlashCmd {
-    fn into(self) -> u8 {
-        match self {
-            // status
-            SpiFlashCmd::ReadStatus2 => 0x35,
-            SpiFlashCmd::ReadStatus3 => 0x15,
-            // read
-            SpiFlashCmd::ReadUniqueID => 0x4B,
-        }
-    }
-}
+use super::{Capacity, Chip, RegReadRet, Register, RegisterAccess, RegisterItem, Vendor};
 
 pub fn parse_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
     let memory_type = data.0;
@@ -54,132 +30,193 @@ pub fn parse_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
     }
 }
 
-pub fn uid_reader(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str> {
-    let mut wbuf: [u8; 13] = [0; 13];
-    wbuf[0] = SpiFlashCmd::ReadUniqueID.into();
+pub const REGISTER_DEFINES: [Register; 4] = [
+    Register {
+        name: "status_1",
+        addr: 0x05,
+        reader: |spi_flash| -> Result<RegReadRet, &'static str> {
+            let mut buf: [u8; 2] = [0x05, 0x00];
 
-    if let Err(e) = spi_flash.drive.transfer(&mut wbuf) {
-        return Err(e);
-    }
+            if let Err(_) = spi_flash.drive.transfer(&mut buf) {
+                return Err("transfer fail");
+            }
 
-    return Ok(wbuf[5..wbuf.len()].to_vec());
-}
+            Ok(RegReadRet::One(buf[1]))
+        },
+        items: Some(&[
+            RegisterItem {
+                name: "busy",
+                alias: &["WIP"],
+                describe: "Erase/Write In Progress",
+                offset: 0,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+            },
+            RegisterItem {
+                name: "write_enable",
+                alias: &["WE", "WEL"],
+                describe: "Write Enable Latch",
+                offset: 1,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+            },
+            RegisterItem {
+                name: "block_protect",
+                alias: &["BP"],
+                describe: "Block Protect Bits",
+                offset: 2,
+                width: 4,
+                access: RegisterAccess::ReadOnly,
+            },
+            RegisterItem {
+                name: "tb_protect",
+                alias: &["TB"],
+                describe: "Top/Bottom Protect Bit",
+                offset: 6,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+            },
+            RegisterItem {
+                name: "sreg_protect",
+                alias: &["SRP"],
+                describe: "Status Register Protect",
+                offset: 7,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+            },
+        ]),
+    },
+    Register {
+        name: "status_2",
+        addr: 0x35,
+        reader: |spi_flash| -> Result<RegReadRet, &'static str> {
+            let mut buf: [u8; 2] = [0x35, 0x00];
 
-pub fn sreg_reader(
-    spi_flash: &SpiFlash<dyn SpiDrive>,
-) -> Result<Box<dyn StatusRegister>, &'static str> {
-    let ret = SREG::from_drive(spi_flash)?;
+            if let Err(_) = spi_flash.drive.transfer(&mut buf) {
+                return Err("transfer fail");
+            }
 
-    return Ok(Box::new(ret));
-}
+            Ok(RegReadRet::One(buf[1]))
+        },
+        items: Some(&[
+            RegisterItem {
+                name: "sreg_protect_1",
+                alias: &["SRL"],
+                offset: 0,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Status Register Protect 1",
+            },
+            RegisterItem {
+                name: "quad_enable",
+                alias: &["QE"],
+                offset: 1,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Quad Enable",
+            },
+            RegisterItem {
+                name: "resv",
+                alias: &["R"],
+                offset: 2,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Reserved",
+            },
+            RegisterItem {
+                name: "lock",
+                alias: &["LB"],
+                offset: 3,
+                width: 3,
+                access: RegisterAccess::ReadOnly,
+                describe: "Security Register Lock Bits",
+            },
+            RegisterItem {
+                name: "lock",
+                alias: &["CMP"],
+                offset: 6,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Complement Protect",
+            },
+            RegisterItem {
+                name: "suspend",
+                alias: &["SUS"],
+                offset: 7,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Suspend Status",
+            },
+        ]),
+    },
+    Register {
+        name: "status_3",
+        addr: 0x15,
+        reader: |spi_flash| -> Result<RegReadRet, &'static str> {
+            let mut buf: [u8; 2] = [0x15, 0x00];
 
-#[derive(Copy, Clone, Debug, EnumIter)]
-pub enum SRegDef {
-    Busy,
-    WriteEnable,
-    BlockProtect,
-    TopBottomProtect,
-    StatusRegProtect,
-    StatusRegProtect1,
-    QuadEnable,
-    SecurityRegisterLock,
-    ComplementProtect,
-    SuspendStatus,
-    CurrentAddressMode,
-    PowerUpAddressMode,
-    WriteProtectSelection,
-    OutputDriverStrength,
-}
+            if let Err(_) = spi_flash.drive.transfer(&mut buf) {
+                return Err("transfer fail");
+            }
 
-impl SRegDef {
-    pub fn max_name_len() -> usize {
-        let mut max_len = 0;
+            Ok(RegReadRet::One(buf[1]))
+        },
+        items: Some(&[
+            RegisterItem {
+                name: "cur_addr_mode",
+                alias: &["ADS"],
+                offset: 0,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Current Address Mode",
+            },
+            RegisterItem {
+                name: "powerup_addr_mode",
+                alias: &["ADP"],
+                offset: 1,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Power Up Address Mode",
+            },
+            RegisterItem {
+                name: "resv",
+                alias: &["R"],
+                offset: 2,
+                width: 2,
+                access: RegisterAccess::ReadOnly,
+                describe: "Reserved",
+            },
+            RegisterItem {
+                name: "DRV",
+                alias: &["DRV"],
+                offset: 5,
+                width: 2,
+                access: RegisterAccess::ReadOnly,
+                describe: "Output Driver Strength",
+            },
+            RegisterItem {
+                name: "resv",
+                alias: &["R"],
+                offset: 7,
+                width: 1,
+                access: RegisterAccess::ReadOnly,
+                describe: "Reserved",
+            },
+        ]),
+    },
+    Register {
+        name: "unique_id",
+        addr: 0x4B,
+        reader: |spi_flash| -> Result<RegReadRet, &'static str> {
+            let mut wbuf: [u8; 13] = [0; 13];
+            wbuf[0] = 0x4B;
 
-        for i in SRegDef::iter() {
-            let l = format!("{:?}", i).len();
-            if l > max_len {
-                max_len = l;
-            };
-        }
+            if let Err(e) = spi_flash.drive.transfer(&mut wbuf) {
+                return Err(e);
+            }
 
-        return max_len;
-    }
-
-    pub fn reg_def(&self) -> Register {
-        match self {
-            SRegDef::Busy => Register::new_bit(0),
-            SRegDef::WriteEnable => Register::new_bit(1),
-            SRegDef::BlockProtect => Register::new(2..6),
-            SRegDef::TopBottomProtect => Register::new_bit(6),
-            SRegDef::StatusRegProtect => Register::new_bit(7),
-            SRegDef::StatusRegProtect1 => Register::new_bit(8),
-            SRegDef::QuadEnable => Register::new_bit(9),
-            SRegDef::SecurityRegisterLock => Register::new(11..14),
-            SRegDef::ComplementProtect => Register::new_bit(14),
-            SRegDef::SuspendStatus => Register::new_bit(15),
-            SRegDef::CurrentAddressMode => Register::new_bit(16),
-            SRegDef::PowerUpAddressMode => Register::new_bit(17),
-            SRegDef::WriteProtectSelection => Register::new_bit(18),
-            SRegDef::OutputDriverStrength => Register::new(21..23),
-        }
-    }
-
-    // pub fn parse(self, buf: &[u8]) -> u32 {
-    //     self.reg_def().read(buf)
-    // }
-}
-
-impl fmt::Display for SRegDef {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-#[derive(Debug)]
-pub struct SREG {
-    pub raw_data: [u8; 3],
-}
-
-impl StatusRegister for SREG {
-    fn from_drive(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Self, &'static str> {
-        let mut ret = SREG { raw_data: [0; 3] };
-
-        let mut buf: [u8; 2] = [0x05, 0x00];
-        spi_flash.drive.transfer(&mut buf)?;
-        ret.raw_data[0] = buf[1];
-
-        let mut buf: [u8; 2] = [SpiFlashCmd::ReadStatus2.into(), 0x00];
-        spi_flash.drive.transfer(&mut buf)?;
-        ret.raw_data[1] = buf[1];
-
-        let mut buf: [u8; 2] = [SpiFlashCmd::ReadStatus3.into(), 0x00];
-        spi_flash.drive.transfer(&mut buf)?;
-        ret.raw_data[2] = buf[1];
-
-        Ok(ret)
-    }
-}
-
-impl SREG {}
-
-impl fmt::Display for SREG {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "StatusRegister: {:02X?}\r\n", self.raw_data)?;
-
-        let name_max_len = SRegDef::max_name_len();
-
-        for i in SRegDef::iter() {
-            let reg = i.reg_def();
-            let bit_width = reg.bit_width();
-            write!(
-                f,
-                "{:>name_max_len$}: 0b{:0bit_width$b}'{}\r\n",
-                i.to_string(),
-                reg.read(&self.raw_data),
-                bit_width,
-            )?;
-        }
-
-        write!(f, "{}", "")
-    }
-}
+            Ok(RegReadRet::Muti(wbuf[5..wbuf.len()].to_vec()))
+        },
+        items: None,
+    },
+];

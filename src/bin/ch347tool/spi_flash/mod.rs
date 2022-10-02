@@ -2,6 +2,7 @@ mod check;
 mod detect;
 mod erase;
 mod read;
+mod reg;
 mod utils;
 mod write;
 
@@ -39,6 +40,7 @@ pub enum Commands {
     Write(write::CmdSpiFlashWrite),
     Read(read::CmdSpiFlashRead),
     Check(check::CmdSpiFlashCheck),
+    Reg(reg::CmdReg),
 }
 
 pub fn cli_spi_flash(args: &CmdSpiFlash) {
@@ -48,5 +50,6 @@ pub fn cli_spi_flash(args: &CmdSpiFlash) {
         Commands::Write(sub_args) => write::cli_spi_flash_write(args, sub_args),
         Commands::Read(sub_args) => read::cli_spi_flash_read(args, sub_args),
         Commands::Check(sub_args) => check::cli_spi_flash_check(args, sub_args),
+        Commands::Reg(sub_args) => reg::cli_main(args, sub_args),
     }
 }
