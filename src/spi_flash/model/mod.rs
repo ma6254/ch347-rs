@@ -13,7 +13,7 @@ pub struct Vendor<'a> {
     pub name: &'static str,
     pub id: u8,
     pub parser: JedecIdParser,
-    pub reg_defines: Option<&'a [Register<'a>]>,
+    pub reg_defines: Option<&'a [Register]>,
 }
 
 impl<'a> Vendor<'_> {

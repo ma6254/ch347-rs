@@ -248,11 +248,11 @@ pub enum RegReadRet {
     Muti(Vec<u8>),
 }
 
-pub struct Register<'a> {
+pub struct Register {
     // pub bits: Range<usize>,
     pub name: &'static str,
     pub addr: u8,
-    pub items: Option<&'a [RegisterItem]>,
+    pub items: Option<&'static [RegisterItem]>,
     pub reader: RegReader,
 }
 

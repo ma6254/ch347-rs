@@ -30,7 +30,7 @@ pub fn parse_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
     }
 }
 
-pub const REGISTER_DEFINES: [Register; 4] = [
+pub const REGISTER_DEFINES: [Register; 5] = [
     Register {
         name: "status_1",
         addr: 0x05,
@@ -216,6 +216,17 @@ pub const REGISTER_DEFINES: [Register; 4] = [
             }
 
             Ok(RegReadRet::Muti(wbuf[5..wbuf.len()].to_vec()))
+        },
+        items: None,
+    },
+    Register {
+        name: "ext_addr",
+        addr: 0xC8,
+        reader: |spi_flash| -> Result<RegReadRet, &'static str> {
+            let mut buf: [u8; 2] = [0xC8, 0x00];
+
+            spi_flash.drive.transfer(&mut buf)?;
+            Ok(RegReadRet::One(buf[1]))
         },
         items: None,
     },
