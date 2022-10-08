@@ -48,7 +48,7 @@ pub fn cli_spi_flash_check(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashCh
         let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
         let chip_info = match device.detect() {
             Err(e) => {
-                println!("{:X?}", e);
+                println!("{}", e);
                 return;
             }
             Ok(chip_info) => chip_info,

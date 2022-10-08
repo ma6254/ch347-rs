@@ -43,8 +43,12 @@ impl<'a> Vendor<'_> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Capacity {
+    C05,
+    C10,
+    C20,
+    C40,
     C80,
     C16,
     C32,
@@ -56,6 +60,10 @@ pub enum Capacity {
 impl Into<usize> for Capacity {
     fn into(self) -> usize {
         match self {
+            Capacity::C05 => 1024 * 64,
+            Capacity::C10 => 1024 * 128,
+            Capacity::C20 => 1024 * 256,
+            Capacity::C40 => 1024 * 512,
             Capacity::C80 => 1024 * 1024 * 1,
             Capacity::C16 => 1024 * 1024 * 2,
             Capacity::C32 => 1024 * 1024 * 4,
@@ -72,6 +80,10 @@ impl fmt::Display for Capacity {
             f,
             "{}",
             match self {
+                Capacity::C05 => "64 KB",
+                Capacity::C10 => "128 KB",
+                Capacity::C20 => "256 KB",
+                Capacity::C40 => "512 KB",
                 Capacity::C80 => "1 MB",
                 Capacity::C16 => "2 MB",
                 Capacity::C32 => "4 MB",
@@ -85,7 +97,7 @@ impl fmt::Display for Capacity {
 
 // #[derive(Debug)]
 pub struct Chip {
-    pub name: &'static str,
+    pub name: String,
     pub vendor: &'static Vendor<'static>,
     pub capacity: Capacity,
 }
@@ -111,7 +123,18 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
     },
 ];
 
+#[test]
+pub fn test_parse_jedec_id() {
+    assert!(parse_jedec_id(&[0xFF, 0xFF, 0xFF]).is_none());
+    assert!(parse_jedec_id(&[0x00, 0x00, 0x00]).is_none());
+    assert!(parse_jedec_id(&[]).is_none());
+}
+
 pub fn parse_jedec_id(buf: &[u8]) -> Option<Chip> {
+    if buf.len() < 3 {
+        return None;
+    }
+
     let vendor = JEDEC_ID_LIST.iter().find(|&i| i.id == buf[0])?;
 
     (vendor.parser)(vendor, (buf[1], buf[2]))

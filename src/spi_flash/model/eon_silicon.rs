@@ -8,7 +8,7 @@ pub fn parse_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
     match memory_type {
         0x30 => match capacity {
             0x16 => Some(Chip {
-                name: "EN25Q32C",
+                name: "EN25Q32C".to_string(),
                 vendor,
                 capacity: Capacity::C32,
             }),
@@ -31,6 +31,7 @@ pub const REGISTER_DEFINES: [Register; 2] = [
 
             Ok(RegReadRet::One(buf[1]))
         },
+        writer: None,
         items: None,
     },
     Register {
@@ -50,6 +51,7 @@ pub const REGISTER_DEFINES: [Register; 2] = [
 
             return Ok(RegReadRet::Muti(wbuf[5..wbuf.len()].to_vec()));
         },
+        writer: None,
         items: None,
     },
 ];

@@ -33,7 +33,7 @@ pub fn cli_spi_flash_detect(flash_args: &super::CmdSpiFlash, _args: &CmdSpiFlash
 
         let chip_info = match device.detect() {
             Err(e) => {
-                println!("{:X?}", e);
+                println!("{}", e);
                 return;
             }
             Ok(chip_info) => chip_info,

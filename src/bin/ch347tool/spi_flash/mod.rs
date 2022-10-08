@@ -20,7 +20,7 @@ pub struct CmdSpiFlash {
     cs: CS,
 
     /// clock freq, 0=60MHz 1=30MHz 2=15MHz 3=7.5MHz 4=3.75MHz 5=1.875MHz 6=937.5KHz 7=468.75KHz
-    #[clap(short, long, value_parser, default_value_t = 0)]
+    #[clap(short, long, value_parser, default_value_t = 2)]
     freq: u8,
 
     #[clap(subcommand)]

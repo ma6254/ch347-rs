@@ -6,12 +6,12 @@ use crate::windows::basetsd::*;
 ///
 /// # Arguments
 ///
-///     list of device_info
+/// list of device_info
 ///
 /// # Examples
 ///
 /// ```rust
-/// println!("enum_device: {:?}", ch347lib::enum_device());
+/// println!("enum_device: {:?}", ch347_rs::enum_device());
 /// ```
 pub fn enum_device() -> Vec<DeviceInfo> {
     let mut device_info_list: Vec<DeviceInfo> = Vec::new();
@@ -59,14 +59,6 @@ pub fn enum_uart_device() -> Vec<DeviceInfo> {
 ///
 /// * `device_index` - A string slice that holds the name of the person
 ///
-/// # Examples
-///
-/// ```
-/// // You can have rust code between fences inside the comments
-/// // If you pass --test to `rustdoc`, it will even test it for you!
-/// use doc::Person;
-/// let person = Person::new("name");
-/// ```
 pub fn get_version(device_index: u32) -> (BOOL, u8, u8, u8, u8) {
     let mut i_driver_ver: u8 = 0;
     let mut i_dllver: u8 = 0;
@@ -222,5 +214,13 @@ impl SpiDrive for Ch347Device {
         }
 
         return Ok(());
+    }
+}
+
+impl Drop for Ch347Device {
+    fn drop(&mut self) {
+        unsafe {
+            CH347CloseDevice(self.index);
+        }
     }
 }

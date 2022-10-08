@@ -7,8 +7,13 @@ pub fn parse_jedec_id(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip> {
 
     match memory_type {
         0x20 => match capacity {
+            0x17 => Some(Chip {
+                name: "MX25L64".to_string(),
+                vendor,
+                capacity: Capacity::C64,
+            }),
             0x19 => Some(Chip {
-                name: "MX25L256",
+                name: "MX25L256".to_string(),
                 vendor,
                 capacity: Capacity::C256,
             }),
@@ -29,6 +34,7 @@ pub const REGISTER_DEFINES: [Register; 2] = [
 
             Ok(RegReadRet::One(buf[1]))
         },
+        writer: None,
         items: Some(&[
             RegisterItem {
                 name: "busy",
@@ -82,6 +88,7 @@ pub const REGISTER_DEFINES: [Register; 2] = [
 
             Ok(RegReadRet::One(buf[1]))
         },
+        writer: None,
         items: Some(&[
             RegisterItem {
                 name: "ODS",

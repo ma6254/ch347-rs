@@ -1,5 +1,5 @@
 use super::*;
-use std::ops::Range;
+use std::{error::Error, fmt, ops::Range};
 
 pub enum SpiFlashCmd {
     JedecId,
@@ -68,30 +68,45 @@ pub struct SpiFlash<T: SpiDrive + ?Sized> {
 
 #[derive(Debug)]
 pub enum DetectErr {
-    UnknowManufacturerID(u8),
-    Other(&'static str),
+    UnknowManufacturerID([u8; 3]),
+    Other(String),
+}
+
+impl fmt::Display for DetectErr {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            DetectErr::UnknowManufacturerID(buf) => write!(f, "Unknow JedecID {:02X?}", buf),
+            DetectErr::Other(s) => write!(f, "{}", s),
+        }
+    }
 }
 
 impl<T: SpiDrive + 'static> SpiFlash<T> {
     pub fn new(drive: T) -> SpiFlash<T> {
-        SpiFlash { drive: drive }
+        SpiFlash { drive }
     }
 
     pub fn detect(&self) -> Result<Chip, DetectErr> {
         let mut wbuf: [u8; 4] = [SpiFlashCmd::JedecId.into(), 0x00, 0x00, 0x00];
 
         if let Err(e) = self.drive.transfer(&mut wbuf) {
-            return Err(DetectErr::Other(e));
+            return Err(DetectErr::Other(format!("{}", e)));
         }
 
         let jedec_id = &wbuf[1..4];
         // println!("JEDEC_ID: {:02X?} ", jedec_id);
 
-        let manufacturer_id = jedec_id[0];
+        // let manufacturer_id = jedec_id[0];
 
         let chip_info = match parse_jedec_id(jedec_id) {
             None => {
-                return Err(DetectErr::UnknowManufacturerID(manufacturer_id));
+                return Err(DetectErr::UnknowManufacturerID(
+                    jedec_id.try_into().unwrap(),
+                ));
+                // return Err(DetectErr::Other(format!(
+                //     "Unknow JedecID: {:02X?}",
+                //     jedec_id
+                // )));
             }
             Some(chip_info) => chip_info,
         };
@@ -236,6 +251,8 @@ impl<T: SpiDrive + 'static> SpiFlash<T> {
 }
 
 pub type RegReader = fn(spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<RegReadRet, &'static str>;
+pub type RegWriter =
+    fn(spi_flash: &SpiFlash<dyn SpiDrive>, buf: &[u8]) -> Result<(), Box<dyn Error>>;
 
 pub enum RegLen {
     One,
@@ -248,12 +265,22 @@ pub enum RegReadRet {
     Muti(Vec<u8>),
 }
 
+impl fmt::Display for RegReadRet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            RegReadRet::One(a) => write!(f, "0x{:02X}({:04b}_{:04b})", a, a >> 4, a & 0x0F),
+            RegReadRet::Muti(a) => write!(f, "{:02X?}", a),
+        }
+    }
+}
+
 pub struct Register {
     // pub bits: Range<usize>,
     pub name: &'static str,
     pub addr: u8,
     pub items: Option<&'static [RegisterItem]>,
     pub reader: RegReader,
+    pub writer: Option<RegWriter>,
 }
 
 pub struct RegisterItem {
@@ -265,13 +292,25 @@ pub struct RegisterItem {
     pub access: RegisterAccess,
 }
 
-#[derive(Default)]
+#[derive(Debug)]
 pub enum RegisterAccess {
-    #[default]
     ReadOnly,
-    ReadWriteVolatile,
     ReadWrite,
     ReadWriteOTP,
+}
+
+impl fmt::Display for RegisterAccess {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                RegisterAccess::ReadOnly => "Volatile, read only",
+                RegisterAccess::ReadWrite => "Non-volatile writable",
+                RegisterAccess::ReadWriteOTP => "Non-volatile writable (OTP)",
+            }
+        )
+    }
 }
 
 // impl Register {
