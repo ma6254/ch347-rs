@@ -1,4 +1,5 @@
 mod eon_silicon;
+mod gigadevice;
 mod macronix;
 mod winbond;
 
@@ -108,12 +109,18 @@ pub struct Chip {
     pub capacity: Capacity,
 }
 
-const JEDEC_ID_LIST: [Vendor; 3] = [
+const JEDEC_ID_LIST: [Vendor; 4] = [
     Vendor {
         name: "Eon Silicon",
         id: 0x1C,
         parser: eon_silicon::parse_jedec_id,
         reg_defines: Some(&eon_silicon::REGISTER_DEFINES),
+    },
+    Vendor {
+        name: "GigaDevice",
+        id: 0xC8,
+        parser: gigadevice::parse_jedec_id,
+        reg_defines: Some(&gigadevice::REGISTER_DEFINES),
     },
     Vendor {
         name: "Macronix (MX)",
