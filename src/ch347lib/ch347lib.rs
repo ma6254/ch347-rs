@@ -1,3 +1,5 @@
+use std::error::Error;
+
 use super::ch347dll::*;
 use crate::spi_flash::{SpiDrive, SpiFlash};
 use crate::windows::basetsd::*;
@@ -13,40 +15,24 @@ use crate::windows::basetsd::*;
 /// ```rust
 /// println!("enum_device: {:?}", ch347_rs::enum_device());
 /// ```
-pub fn enum_device() -> Vec<DeviceInfo> {
-    let mut device_info_list: Vec<DeviceInfo> = Vec::new();
+pub fn enum_device() -> Vec<Ch347Device> {
+    let mut device_info_list = Vec::new();
 
     for i in 0..16 {
-        unsafe {
-            if CH347OpenDevice(i) == INVALID_HANDLE_VALUE {
-                continue;
-            }
-
-            if let Some(info) = get_device_info(i as u64) {
-                device_info_list.push(info);
-            }
-
-            CH347CloseDevice(i);
+        if let Ok(dev) = Ch347Device::new(i) {
+            device_info_list.push(dev);
         }
     }
 
     return device_info_list;
 }
 
-pub fn enum_uart_device() -> Vec<DeviceInfo> {
-    let mut device_info_list: Vec<DeviceInfo> = Vec::new();
+pub fn enum_uart_device() -> Vec<Ch347Device> {
+    let mut device_info_list = Vec::new();
 
     for i in 0..16 {
-        unsafe {
-            if CH347Uart_Open(i) == INVALID_HANDLE_VALUE {
-                continue;
-            }
-
-            if let Some(info) = get_uart_device_info(i as u64) {
-                device_info_list.push(info);
-            }
-
-            CH347Uart_Close(i);
+        if let Some(dev) = Ch347Device::new_serial(i) {
+            device_info_list.push(dev);
         }
     }
 
@@ -148,31 +134,123 @@ pub fn i2c_device_detect(device_index: u32, i2c_dev_addr: u8) -> bool {
     return true;
 }
 
+pub enum CH347TransType {
+    Parallel,
+    Serial,
+}
+
 pub struct Ch347Device {
     index: u32,
+    ts_type: CH347TransType,
+    spi_cfg: SpiConfig,
 }
 
 pub fn enum_ch347_device() -> Vec<Ch347Device> {
     let mut device_list: Vec<Ch347Device> = Vec::new();
 
     for i in enum_device() {
-        device_list.push(Ch347Device::new(i.index as u32));
+        device_list.push(i);
     }
 
     for i in enum_uart_device() {
-        device_list.push(Ch347Device::new(i.index as u32));
+        device_list.push(i);
     }
 
     return device_list;
 }
 
 impl Ch347Device {
-    pub fn new(index: u32) -> Ch347Device {
-        Ch347Device { index }
+    pub fn new(index: u32) -> Result<Ch347Device, &'static str> {
+        unsafe {
+            if CH347OpenDevice(index) == INVALID_HANDLE_VALUE {
+                return Err("CH347OpenDevice Fail");
+            }
+        }
+
+        Ok(Ch347Device {
+            index,
+            ts_type: CH347TransType::Parallel,
+            spi_cfg: SpiConfig::default(),
+        })
     }
 
-    pub fn spi_flash(self) -> SpiFlash<Ch347Device> {
-        SpiFlash::new(self)
+    pub fn new_serial(index: u32) -> Option<Ch347Device> {
+        unsafe {
+            if CH347Uart_Open(index) == INVALID_HANDLE_VALUE {
+                return None;
+            }
+        }
+
+        Some(Ch347Device {
+            index,
+            ts_type: CH347TransType::Serial,
+            spi_cfg: SpiConfig::default(),
+        })
+    }
+
+    pub fn spi_flash(mut self) -> Result<SpiFlash<Ch347Device>, Box<dyn Error>> {
+        self.spi_cfg = self.get_raw_spi_config()?;
+        Ok(SpiFlash::new(self))
+    }
+
+    pub fn get_raw_info(&self) -> Option<DeviceInfo> {
+        let device_info = DeviceInfo::default();
+
+        match self.ts_type {
+            CH347TransType::Parallel => {
+                unsafe {
+                    if CH347GetDeviceInfor(self.index as libc::c_ulong, &device_info as *const _)
+                        == 0
+                    {
+                        return None;
+                    }
+                }
+                Some(device_info)
+            }
+            CH347TransType::Serial => {
+                unsafe {
+                    if CH347Uart_GetDeviceInfor(
+                        self.index as libc::c_ulong,
+                        &device_info as *const _,
+                    ) == 0
+                    {
+                        return None;
+                    }
+                }
+                Some(device_info)
+            }
+        }
+    }
+
+    pub fn get_raw_spi_config(&self) -> Result<SpiConfig, &'static str> {
+        let mut spicfg = SpiConfig::default();
+        unsafe {
+            if CH347SPI_GetCfg(self.index, &mut spicfg) == 0 {
+                return Err("CH347SPI_GetCfg Fail");
+            }
+        }
+
+        Ok(spicfg)
+    }
+
+    pub fn apply_spi_config(&mut self) -> Result<(), &'static str> {
+        unsafe {
+            if CH347SPI_Init(self.index, &mut self.spi_cfg) == 0 {
+                return Err("CH347SPI_Init Fail");
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn change_spi_raw_config<F>(&mut self, f: F) -> Result<(), &'static str>
+    where
+        F: Fn(&mut SpiConfig),
+    {
+        f(&mut self.spi_cfg);
+        self.apply_spi_config()?;
+
+        Ok(())
     }
 }
 

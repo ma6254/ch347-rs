@@ -46,14 +46,19 @@ impl DeviceInfo {
     }
 }
 
-pub fn cli_list_device(args: &CmdListDevice) {
-    let mut ret: Vec<DeviceInfo> = Vec::new();
-    for i in ch347_rs::enum_device() {
-        ret.push(DeviceInfo::from_base_info(i));
+impl Into<DeviceInfo> for ch347_rs::DeviceInfo {
+    fn into(self) -> DeviceInfo {
+        DeviceInfo::from_base_info(self)
     }
+}
 
-    for i in ch347_rs::enum_uart_device() {
-        ret.push(DeviceInfo::from_base_info(i));
+pub fn cli_list_device(args: &CmdListDevice) {
+    let mut l: Vec<DeviceInfo> = Vec::new();
+
+    for i in ch347_rs::enum_ch347_device() {
+        if let Some(info) = i.get_raw_info() {
+            l.push(info.into());
+        }
     }
 
     match args.format {
@@ -61,7 +66,7 @@ pub fn cli_list_device(args: &CmdListDevice) {
             println!("'Ch347 device list:");
         }
         ListFormat::Json => {
-            let j = serde_json::to_string_pretty(&ret);
+            let j = serde_json::to_string_pretty(&l);
 
             match j {
                 Ok(j) => {

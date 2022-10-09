@@ -81,6 +81,12 @@ impl fmt::Display for DetectErr {
     }
 }
 
+impl Into<Box<dyn Error>> for DetectErr {
+    fn into(self) -> Box<dyn Error> {
+        self.to_string().into()
+    }
+}
+
 impl<T: SpiDrive + 'static> SpiFlash<T> {
     pub fn new(drive: T) -> SpiFlash<T> {
         SpiFlash { drive }

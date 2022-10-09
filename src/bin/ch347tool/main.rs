@@ -1,3 +1,5 @@
+use std::error::Error;
+
 mod gpio;
 mod i2c;
 mod list;
@@ -26,16 +28,18 @@ enum Commands {
     Gpio(gpio::CmdGpio),
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
     match &cli.command {
         Commands::List(args) => list::cli_list_device(args),
         Commands::Gpio(args) => gpio::cli_operator_gpio(args),
         Commands::I2cDetect(args) => i2c::cli_i2c_detect(args),
         Commands::I2cDump(args) => i2c::cli_i2c_dump(args),
-        Commands::SpiFlash(args) => spi_flash::cli_spi_flash(args),
+        Commands::SpiFlash(args) => spi_flash::cli_spi_flash(args)?,
         _ => {
-            println!("undefined command");
+            return Err("undefined command".into());
         }
     }
+
+    Ok(())
 }

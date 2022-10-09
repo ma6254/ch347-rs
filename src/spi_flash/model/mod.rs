@@ -9,15 +9,15 @@ use super::{RegReadRet, Register, RegisterAccess, RegisterItem, SpiDrive, SpiFla
 type JedecIdParser = fn(vendor: &'static Vendor, data: (u8, u8)) -> Option<Chip>;
 
 // #[derive(Debug)]
-pub struct Vendor<'a> {
+pub struct Vendor {
     pub name: &'static str,
     pub id: u8,
     pub parser: JedecIdParser,
-    pub reg_defines: Option<&'a [Register]>,
+    pub reg_defines: Option<&'static [Register]>,
 }
 
-impl<'a> Vendor<'_> {
-    pub fn read_uid(&self, spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str> {
+impl Vendor {
+    pub fn check_support_uid(&self) -> Result<&'static Register, &'static str> {
         if let None = self.reg_defines {
             return Err("Not define Registers");
         }
@@ -26,14 +26,20 @@ impl<'a> Vendor<'_> {
             .reg_defines
             .unwrap()
             .iter()
-            .find(|&item| item.name.eq("unique_id"));
+            .find(|item| item.name.eq("unique_id"));
 
-        if let None = result {
-            return Err("Not support Unique ID");
-        }
-        let result = result.unwrap();
+        let result = match result {
+            None => return Err("Not support UniqueID"),
+            Some(a) => a,
+        };
 
-        let result = (result.reader)(spi_flash)?;
+        Ok(result)
+    }
+
+    pub fn read_uid(&self, spi_flash: &SpiFlash<dyn SpiDrive>) -> Result<Vec<u8>, &'static str> {
+        let uid_reg = self.check_support_uid()?;
+
+        let result = (uid_reg.reader)(spi_flash)?;
 
         if let RegReadRet::Muti(buf) = result {
             return Ok(buf);
@@ -98,7 +104,7 @@ impl fmt::Display for Capacity {
 // #[derive(Debug)]
 pub struct Chip {
     pub name: String,
-    pub vendor: &'static Vendor<'static>,
+    pub vendor: &'static Vendor,
     pub capacity: Capacity,
 }
 
@@ -116,7 +122,7 @@ const JEDEC_ID_LIST: [Vendor; 3] = [
         reg_defines: Some(&macronix::REGISTER_DEFINES),
     },
     Vendor {
-        name: "Winbond (ex Nexcom) serial flashes",
+        name: "Winbond (ex Nexcom)",
         id: 0xEF,
         parser: winbond::parse_jedec_id,
         reg_defines: Some(&winbond::REGISTER_DEFINES),

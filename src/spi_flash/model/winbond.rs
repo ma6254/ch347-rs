@@ -71,7 +71,27 @@ pub const REGISTER_DEFINES: [Register; 5] = [
 
             Ok(RegReadRet::One(buf[1]))
         },
-        writer: None,
+        writer: Some(|spi_flash, wbuf| -> Result<(), Box<dyn Error>> {
+            let mut buf: [u8; 1] = [0x06];
+            spi_flash.drive.transfer(&mut buf)?;
+
+            let mut buf: [u8; 2] = [0x01, wbuf[0]];
+            spi_flash.drive.transfer(&mut buf)?;
+
+            loop {
+                let mut buf: [u8; 2] = [0x05, 0x00];
+                spi_flash.drive.transfer(&mut buf)?;
+
+                if buf[1] & 0x01 != 0x01 {
+                    break;
+                }
+            }
+
+            let mut buf: [u8; 1] = [0x04];
+            spi_flash.drive.transfer(&mut buf)?;
+
+            Ok(())
+        }),
         items: Some(&[
             RegisterItem {
                 name: "busy",

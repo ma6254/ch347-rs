@@ -1,4 +1,6 @@
 use std::{
+    cmp,
+    error::Error,
     fmt::Write,
     fs,
     sync::{Arc, Mutex},
@@ -31,7 +33,10 @@ pub struct CmdSpiFlashWrite {
     file: String,
 }
 
-pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWrite) {
+pub fn cli_spi_flash_write(
+    flash_args: &super::CmdSpiFlash,
+    args: &CmdSpiFlashWrite,
+) -> Result<(), Box<dyn Error>> {
     let mut setp_count = 1;
     let mut setp_cnt = 0;
     if args.erase {
@@ -41,13 +46,7 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         setp_count += 1;
     }
 
-    let mut file_buf = match fs::read(args.file.as_str()) {
-        Err(e) => {
-            println!("{:X?}", e);
-            return;
-        }
-        Ok(f) => f,
-    };
+    let mut file_buf = fs::read(args.file.as_str())?;
 
     if args.file.to_lowercase().ends_with(".cap") && (file_buf.len() > 0x800) {
         println!(
@@ -60,62 +59,10 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         file_buf = file_buf[0x800..file_buf.len()].to_vec();
     }
 
-    unsafe {
-        if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
-            println!("CH347OpenDevice Fail");
-            return;
-        }
-    }
-
-    let clock_level = match ch347_rs::SpiClockLevel::from_byte(flash_args.freq) {
-        None => {
-            println!("Unknow SPI clock level: {}", flash_args.freq);
-            return;
-        }
-        Some(level) => level,
-    };
-    println!("Select SPI Clock: {}", clock_level);
-
-    unsafe {
-        let mut spicfg = ch347_rs::SpiConfig::default();
-        if ch347_rs::CH347SPI_GetCfg(flash_args.index, &mut spicfg) == 0 {
-            println!("CH347SPI_GetCfg Fail");
-            return;
-        }
-
-        spicfg.clock = flash_args.freq;
-        spicfg.write_read_interval = 0x100;
-        // spicfg.chip_select = 0x80;
-        spicfg.byte_order = 1;
-        if ch347_rs::CH347SPI_Init(flash_args.index, &mut spicfg) == 0 {
-            println!("CH347SPI_Init Fail");
-            return;
-        }
-        // println!("{:#?}", spicfg);
-    }
-
-    let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
-    let chip_info = match device.detect() {
-        Err(e) => {
-            println!("{}", e);
-            return;
-        }
-        Ok(chip_info) => chip_info,
-    };
-
-    println!("ChipInfo:");
-    println!("  Manufacturer: {}", chip_info.vendor.name);
-    println!("          Name: {}", chip_info.name);
-    println!("      Capacity: {}", chip_info.capacity);
+    let (device, chip_info) = flash_args.init()?;
 
     let chip_capacity: usize = chip_info.capacity.into();
-
-    let wsize: usize;
-    if file_buf.len() <= chip_capacity {
-        wsize = file_buf.len();
-    } else {
-        wsize = chip_capacity;
-    }
+    let wsize = cmp::min(file_buf.len(), chip_capacity);
 
     if file_buf.len() > chip_capacity {
         println!(
@@ -158,10 +105,7 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
             thread::sleep(Duration::from_millis(40));
         });
 
-        if let Err(e) = device.erase_full() {
-            println!("{:X?}", e);
-            return;
-        }
+        device.erase_full()?;
 
         let pb_finished = pb_finished.lock().unwrap();
         (*pb_finished).finish_and_clear();
@@ -249,10 +193,7 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         }
     };
 
-    if let Err(e) = device.write_with_callback(a, 0, &file_buf[0..wsize]) {
-        println!("{:X?}", e);
-        return;
-    };
+    device.write_with_callback(a, 0, &file_buf[0..wsize])?;
     pb.finish_and_clear();
     let take_time = start_time.elapsed().unwrap().as_millis();
     let take_time = Duration::from_millis(take_time as u64);
@@ -282,7 +223,5 @@ pub fn cli_spi_flash_write(flash_args: &super::CmdSpiFlash, args: &CmdSpiFlashWr
         );
     }
 
-    unsafe {
-        ch347_rs::CH347CloseDevice(flash_args.index);
-    }
+    Ok(())
 }

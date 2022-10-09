@@ -23,112 +23,47 @@ pub struct CmdReg {
     value: Option<String>,
 }
 
-pub fn cli_main(flash_args: &super::CmdSpiFlash, args: &CmdReg) {
-    unsafe {
-        if ch347_rs::CH347OpenDevice(flash_args.index) == ch347_rs::INVALID_HANDLE_VALUE {
-            println!("CH347OpenDevice Fail");
-            return;
-        }
-    }
+pub fn cli_main(flash_args: &super::CmdSpiFlash, args: &CmdReg) -> Result<(), Box<dyn Error>> {
+    let (device, chip_info) = flash_args.init()?;
 
-    let clock_level = match ch347_rs::SpiClockLevel::from_byte(flash_args.freq) {
-        None => {
-            println!("Unknow SPI clock level: {}", flash_args.freq);
-            return;
-        }
-        Some(level) => level,
+    let reg_defines = match chip_info.vendor.reg_defines {
+        None => return Err("Not define Registers".into()),
+        Some(a) => a,
     };
-    println!("Select SPI Clock: {}", clock_level);
 
-    unsafe {
-        let mut spicfg = ch347_rs::SpiConfig::default();
-        if ch347_rs::CH347SPI_GetCfg(flash_args.index, &mut spicfg) == 0 {
-            println!("CH347SPI_GetCfg Fail");
-            return;
-        }
+    if (args.register == None) && (args.value == None) {
+        // show all registers
+        show_all_registers(device, chip_info, reg_defines)?;
+    } else if (args.register != None) && (args.value == None) {
+        // Read the specified register
 
-        spicfg.clock = flash_args.freq;
-        // spicfg.chip_select = 0x80;
-        spicfg.byte_order = 1;
-        if ch347_rs::CH347SPI_Init(flash_args.index, &mut spicfg) == 0 {
-            println!("CH347SPI_Init Fail");
-            return;
-        }
-        // println!("{:#?}", spicfg);
+        let reg_name = args.register.as_deref().unwrap();
 
-        let device = ch347_rs::Ch347Device::new(flash_args.index).spi_flash();
-        let chip_info = match device.detect() {
-            Err(e) => {
-                println!("{}", e);
-                return;
-            }
-            Ok(chip_info) => chip_info,
-        };
+        let find_result = utils::find_reg_by_name(reg_name, reg_defines);
 
-        println!("ChipInfo:");
-        println!("  Manufacturer: {}", chip_info.vendor.name);
-        println!("          Name: {}", chip_info.name);
-        println!("      Capacity: {}", chip_info.capacity);
-
-        let reg_defines = match chip_info.vendor.reg_defines {
-            None => {
-                println!("Not define Registers");
-                return;
-            }
+        let find_result = match find_result {
+            None => return Err(format!("Not Found Reg: {:?}", reg_name).into()),
             Some(a) => a,
         };
 
-        if (args.register == None) && (args.value == None) {
-            // show all registers
-            if let Err(e) = show_all_registers(device, chip_info, reg_defines) {
-                println!("{}", e);
-                return;
-            }
-        } else if (args.register != None) && (args.value == None) {
-            // Read the specified register
+        show_one_registers(device, find_result)?;
+    } else {
+        // write to the specified register
 
-            let reg_name = args.register.as_deref().unwrap();
+        let reg_name = args.register.as_deref().unwrap();
+        let reg_write_value = args.value.as_deref().unwrap();
 
-            let find_result = utils::find_reg_by_name(reg_name, reg_defines);
+        let find_result = utils::find_reg_by_name(reg_name, reg_defines);
 
-            let find_result = match find_result {
-                None => {
-                    println!("Not Found Reg: {:?}", reg_name);
-                    return;
-                }
-                Some(a) => a,
-            };
+        let find_result = match find_result {
+            None => return Err(format!("Not Found Reg: {:?}", reg_name).into()),
+            Some(a) => a,
+        };
 
-            if let Err(e) = show_one_registers(device, find_result) {
-                println!("{}", e);
-                return;
-            }
-        } else {
-            // write to the specified register
-
-            let reg_name = args.register.as_deref().unwrap();
-            let reg_write_value = args.value.as_deref().unwrap();
-
-            let find_result = utils::find_reg_by_name(reg_name, reg_defines);
-
-            let find_result = match find_result {
-                None => {
-                    println!("Not Found Reg: {:?}", reg_name);
-                    return;
-                }
-                Some(a) => a,
-            };
-
-            if let Err(e) = write_registers(device, find_result, reg_write_value) {
-                println!("{}", e);
-                return;
-            }
-        }
+        write_registers(device, find_result, reg_write_value)?;
     }
 
-    unsafe {
-        ch347_rs::CH347CloseDevice(flash_args.index);
-    }
+    Ok(())
 }
 
 fn show_register_item_table(r: &[ch347_rs::RegisterItem], v: ch347_rs::RegReadRet) -> TableStruct {
@@ -197,7 +132,7 @@ fn show_register_item_table(r: &[ch347_rs::RegisterItem], v: ch347_rs::RegReadRe
     items_table.push(items_val_table);
 
     let mut items_access_table = Vec::new();
-    items_access_table.push("Desc".cell().bold(true));
+    items_access_table.push("Access".cell().bold(true));
     for ri in r.iter().rev() {
         items_access_table.push(
             console::style(ri.access.to_string())
@@ -451,7 +386,7 @@ fn write_registers(
             let width = ri.width as usize;
 
             let reg_writer = match r.writer {
-                None => panic!("The Reg Not Support Write"),
+                None => return Err("The Reg Not Support Write".into()),
                 Some(a) => a,
             };
 
