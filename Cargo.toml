@@ -2,7 +2,7 @@
 name = "ch347_rs"
 description = "ch347 for rust"
 license = "MIT"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 build = "build.rs"
 
