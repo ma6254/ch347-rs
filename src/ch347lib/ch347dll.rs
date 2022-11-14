@@ -133,7 +133,7 @@ pub struct DeviceInfo {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SpiConfig {
     /// 0-3:SPI Mode0/1/2/3
     pub mode: UCHAR,
@@ -169,27 +169,9 @@ pub struct SpiConfig {
     pub delay_deactive: ULONG,
 }
 
-impl Default for SpiConfig {
-    fn default() -> SpiConfig {
-        SpiConfig {
-            mode: 0,
-            clock: 0,
-            byte_order: 0,
-            write_read_interval: 0,
-            out_default_data: 0,
-            chip_select: 0,
-            cs1_polarity: 0,
-            cs2_polarity: 0,
-            is_auto_deative_cs: 0,
-            active_delay: 0,
-            delay_deactive: 0,
-        }
-    }
-}
-
 impl DeviceInfo {
-    pub fn default<'a>() -> DeviceInfo {
-        return DeviceInfo {
+    pub fn default() -> DeviceInfo {
+        DeviceInfo {
             index: 0,
             device_path: [0; 260],
             usb_class: 0,
@@ -209,7 +191,7 @@ impl DeviceInfo {
             read_timeout: 0,
             func_desc_str: [0; 64],
             fw_ver: 0,
-        };
+        }
     }
 
     pub fn get_device_path(&self) -> String {
@@ -221,18 +203,18 @@ impl DeviceInfo {
 
     pub fn get_usb_class(&self) -> UsbClass {
         match self.usb_class {
-            0 => return UsbClass::Ch341,
-            2 => return UsbClass::Hid,
-            3 => return UsbClass::Vcp,
+            0 => UsbClass::Ch341,
+            2 => UsbClass::Hid,
+            3 => UsbClass::Vcp,
             _ => panic!("Unknown usb class {}", self.usb_class),
         }
     }
 
     pub fn get_func_type(&self) -> FuncType {
         match self.func_type {
-            0 => return FuncType::Uart,
-            1 => return FuncType::SpiI2c,
-            2 => return FuncType::JtagI2c,
+            0 => FuncType::Uart,
+            1 => FuncType::SpiI2c,
+            2 => FuncType::JtagI2c,
             _ => panic!("Unknown func type {}", self.usb_class),
         }
     }
@@ -288,7 +270,62 @@ impl fmt::Display for DeviceInfo {
     }
 }
 
-#[link(name = "CH347DLLA64")]
+// NOTE: The following are stubs for functions missing in the closed source
+// .so library for Linux.
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347GetDeviceInfor(_iIndex: ULONG, _DevInformation: *const DeviceInfo) -> BOOL {
+    0
+}
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347Uart_GetDeviceInfor(_iIndex: ULONG, _DevInformation: *const DeviceInfo) -> BOOL {
+    0
+}
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347Uart_Open(_DevI: ULONG) -> HANDLE {
+    std::ptr::null_mut::<libc::c_void>()
+}
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347Uart_SetDeviceNotify() {}
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347GPIO_Get(_iIndex: ULONG, _iDir: PUCHAR, _iData: PUCHAR) -> BOOL {
+    0
+}
+
+#[cfg(target_os = "linux")]
+#[allow(non_snake_case)]
+/// # Safety
+/// This comes from a closed source C library. Rewrite it in Rust.
+pub unsafe fn CH347GPIO_Set(
+    _iIndex: ULONG,
+    _iEnable: UCHAR,
+    _iSetDirOut: UCHAR,
+    _iSetDataOut: UCHAR,
+) -> BOOL {
+    0
+}
+
+#[cfg_attr(target_os = "linux", link(name = "ch347spi"))]
+#[cfg_attr(target_os = "windows", link(name = "CH347DLLA64"))]
 extern "C" {
 
     /// 该函数用于获得驱动版本、库版本、设备版本、芯片类型(CH341(FS)/CH347(HS))
@@ -347,6 +384,7 @@ extern "C" {
     ///
     /// 执行成功返回 1，失败返回 0
     ///
+    #[cfg(target_os = "windows")]
     pub fn CH347GetDeviceInfor(iIndex: ULONG, DevInformation: *const DeviceInfo) -> BOOL;
 
     /// 设定设备事件通知程序
@@ -417,6 +455,7 @@ extern "C" {
     /// ```c
     /// HANDLE WINAPI CH347Uart_Open(ULONG iIndex);
     /// ```
+    #[cfg(target_os = "windows")]
     pub fn CH347Uart_Open(DevI: ULONG) -> HANDLE;
 
     /// 该函数用于关闭 CH347 串口
@@ -429,6 +468,7 @@ extern "C" {
     /// ```c
     /// BOOL WINAPI CH347Uart_GetDeviceInfor(ULONG iIndex,mDeviceInforS *DevInformation);
     /// ```
+    #[cfg(target_os = "windows")]
     pub fn CH347Uart_GetDeviceInfor(iIndex: ULONG, DevInformation: *const DeviceInfo) -> BOOL;
 
     // pub fn CH347Uart_SetDeviceNotify
@@ -440,6 +480,7 @@ extern "C" {
     ///     UCHAR *iDir,   //引脚方向:GPIO0-7对应位0-7.0：输入；1：输出
     ///     UCHAR *iData); //GPIO0电平:GPIO0-7对应位0-7,0：低电平；1：高电平)
     /// ```
+    #[cfg(target_os = "windows")]
     pub fn CH347GPIO_Get(iIndex: ULONG, iDir: PUCHAR, iData: PUCHAR) -> BOOL;
 
     /// 设置CH347的GPIO方向和引脚电平值
@@ -450,6 +491,7 @@ extern "C" {
     ///     UCHAR iSetDirOut,   //设置I/O方向,某位清0则对应引脚为输入,某位置1则对应引脚为输出.GPIO0-7对应位0-7.
     ///     UCHAR iSetDataOut); //输出数据,如果I/O方向为输出,那么某位清0时对应引脚输出低电平,某位置1时对应引脚输出高电平
     /// ```
+    #[cfg(target_os = "windows")]
     pub fn CH347GPIO_Set(
         iIndex: ULONG,
         iEnable: UCHAR,
@@ -458,8 +500,9 @@ extern "C" {
     ) -> BOOL;
 
     /// ```c
-    ///     BOOL	WINAPI	CH347I2C_Set(ULONG			iIndex,  // 指定设备序号
-    ///         ULONG			iMode );  // 指定模式,见下行
+    /// BOOL WINAPI CH347I2C_Set(
+    ///     ULONG iIndex, // 指定设备序号
+    ///     ULONG iMode );  // 指定模式,见下行
     /// // 位1-位0: I2C接口速度/SCL频率, 00=低速/20KHz,01=标准/100KHz(默认值),10=快速/400KHz,11=高速/750KHz
     /// // 其它保留,必须为0
     /// ```
@@ -468,12 +511,12 @@ extern "C" {
     /// 处理I2C数据流,2线接口,时钟线为SCL引脚,数据线为SDA引脚
     ///
     /// ```c
-    ///  BOOL	WINAPI	CH347StreamI2C(
-    ///      ULONG		iIndex,        // 指定设备序号
-    ///      ULONG		iWriteLength,  // 准备写出的数据字节数
-    ///      PVOID		iWriteBuffer,  // 指向一个缓冲区,放置准备写出的数据,首字节通常是I2C设备地址及读写方向位
-    ///      ULONG		iReadLength,   // 准备读取的数据字节数
-    ///      PVOID		oReadBuffer ); // 指向一个缓冲区,返回后是读入的数据
+    /// BOOL WINAPI CH347StreamI2C(
+    ///     ULONG    iIndex,        // 指定设备序号
+    ///     ULONG    iWriteLength,  // 准备写出的数据字节数
+    ///     PVOID    iWriteBuffer,  // 指向一个缓冲区,放置准备写出的数据,首字节通常是I2C设备地址及读写方向位
+    ///     ULONG    iReadLength,   // 准备读取的数据字节数
+    ///     PVOID    oReadBuffer ); // 指向一个缓冲区,返回后是读入的数据
     /// ```
     pub fn CH347StreamI2C(
         iIndex: ULONG,
@@ -486,13 +529,13 @@ extern "C" {
     /// SPI控制器初始化
     ///
     /// ``` c
-    /// BOOL	WINAPI	CH347SPI_Init(ULONG iIndex,mSpiCfgS *SpiCfg);
+    /// BOOL WINAPI CH347SPI_Init(ULONG iIndex,mSpiCfgS *SpiCfg);
     /// ```
     pub fn CH347SPI_Init(iIndex: ULONG, mSpiCfgS: *mut SpiConfig) -> BOOL;
 
     /// 获取SPI控制器配置信息
     /// ```c
-    /// BOOL    WINAPI  CH347SPI_GetCfg(ULONG iIndex,mSpiCfgS *SpiCfg);
+    /// BOOL WINAPI CH347SPI_GetCfg(ULONG iIndex,mSpiCfgS *SpiCfg);
     /// ```
     pub fn CH347SPI_GetCfg(iIndex: ULONG, mSpiCfgS: *mut SpiConfig) -> BOOL;
 

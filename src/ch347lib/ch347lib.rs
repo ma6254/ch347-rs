@@ -1,8 +1,10 @@
 use std::error::Error;
+use std::fmt;
 
 use super::ch347dll::*;
 use crate::spi_flash::{SpiDrive, SpiFlash};
 use crate::windows::basetsd::*;
+use clap::ValueEnum;
 
 /// 枚举设备列表
 ///
@@ -24,7 +26,7 @@ pub fn enum_device() -> Vec<Ch347Device> {
         }
     }
 
-    return device_info_list;
+    device_info_list
 }
 
 pub fn enum_uart_device() -> Vec<Ch347Device> {
@@ -36,7 +38,17 @@ pub fn enum_uart_device() -> Vec<Ch347Device> {
         }
     }
 
-    return device_info_list;
+    device_info_list
+}
+
+pub fn open_device(index: u32) -> HANDLE {
+    unsafe { CH347OpenDevice(index as ULONG) }
+}
+
+pub fn close_device(index: u32) {
+    unsafe {
+        CH347CloseDevice(index as ULONG);
+    }
 }
 
 /// Returns a person with the name given them
@@ -62,7 +74,7 @@ pub fn get_version(device_index: u32) -> (BOOL, u8, u8, u8, u8) {
         );
     }
 
-    return (ret, i_driver_ver, i_dllver, ibcd_device, i_chip_type);
+    (ret, i_driver_ver, i_dllver, ibcd_device, i_chip_type)
 }
 
 pub fn get_device_info(device_index: u64) -> Option<DeviceInfo> {
@@ -76,7 +88,7 @@ pub fn get_device_info(device_index: u64) -> Option<DeviceInfo> {
         return None;
     }
 
-    return Some(device_info);
+    Some(device_info)
 }
 
 pub fn get_uart_device_info(device_index: u64) -> Option<DeviceInfo> {
@@ -90,7 +102,7 @@ pub fn get_uart_device_info(device_index: u64) -> Option<DeviceInfo> {
         return None;
     }
 
-    return Some(device_info);
+    Some(device_info)
 }
 
 pub fn set_notify_callback(
@@ -109,7 +121,7 @@ pub fn set_notify_callback(
         };
 
         CH347SetDeviceNotify(
-            device_index,
+            device_index as ULONG,
             // device_id.clone().as_mut_ptr(),
             device_id.as_ptr(),
             &mut cbk_fn as *mut _ as *mut libc::c_void,
@@ -117,21 +129,75 @@ pub fn set_notify_callback(
     }
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+pub enum I2cSpeed {
+    Low = 0x00,  //  20kHz
+    Std = 0x01,  // 100kHz
+    Fast = 0x02, // 400kHz
+    High = 0x03, // 750kHz
+}
+
+impl fmt::Display for I2cSpeed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{:?}-{}",
+            self,
+            match self {
+                I2cSpeed::Low => "20kHz",
+                I2cSpeed::Std => "100kHz",
+                I2cSpeed::Fast => "400kHz",
+                I2cSpeed::High => "750kHz",
+            }
+        )
+    }
+}
+
+pub fn i2c_set(index: u32, speed: I2cSpeed) {
+    unsafe {
+        CH347I2C_Set(index as ULONG, speed as ULONG);
+    }
+}
+
+pub fn i2c_stream(index: u32, wsize: u32, wbuf: *mut u8, rsize: u32, rbuf: *mut u8) -> i32 {
+    unsafe {
+        CH347StreamI2C(
+            index as ULONG,
+            wsize as ULONG,
+            wbuf as *mut libc::c_void,
+            rsize as ULONG,
+            rbuf as *mut libc::c_void,
+        )
+    }
+}
+
 pub fn i2c_device_detect(device_index: u32, i2c_dev_addr: u8) -> bool {
     unsafe {
         let mut wbuf: [u8; 1] = [i2c_dev_addr << 1];
         if CH347StreamI2C(
-            device_index,
+            device_index as ULONG,
             1,
             wbuf.as_mut_ptr() as *mut libc::c_void,
             0,
-            0 as *mut libc::c_void,
+            std::ptr::null_mut::<libc::c_void>(),
         ) == 0
         {
             return false;
         }
     }
-    return true;
+    true
+}
+
+pub fn gpio_get(index: u32, gpio_dir: *mut u8, gpio_data: *mut u8) {
+    unsafe {
+        CH347GPIO_Get(index as ULONG, gpio_dir as *mut u8, gpio_data as *mut u8);
+    }
+}
+
+pub fn gpio_set(index: u32, gpio_enable: u8, gpio_dir: u8, gpio_data: u8) {
+    unsafe {
+        CH347GPIO_Set(index as ULONG, gpio_enable, gpio_dir, gpio_data);
+    }
 }
 
 pub enum CH347TransType {
@@ -140,7 +206,7 @@ pub enum CH347TransType {
 }
 
 pub struct Ch347Device {
-    index: u32,
+    index: ULONG,
     ts_type: CH347TransType,
     spi_cfg: SpiConfig,
 }
@@ -156,19 +222,19 @@ pub fn enum_ch347_device() -> Vec<Ch347Device> {
         device_list.push(i);
     }
 
-    return device_list;
+    device_list
 }
 
 impl Ch347Device {
     pub fn new(index: u32) -> Result<Ch347Device, &'static str> {
         unsafe {
-            if CH347OpenDevice(index) == INVALID_HANDLE_VALUE {
+            if CH347OpenDevice(index as ULONG) == INVALID_HANDLE_VALUE {
                 return Err("CH347OpenDevice Fail");
             }
         }
 
         Ok(Ch347Device {
-            index,
+            index: index as ULONG,
             ts_type: CH347TransType::Parallel,
             spi_cfg: SpiConfig::default(),
         })
@@ -176,13 +242,13 @@ impl Ch347Device {
 
     pub fn new_serial(index: u32) -> Option<Ch347Device> {
         unsafe {
-            if CH347Uart_Open(index) == INVALID_HANDLE_VALUE {
+            if CH347Uart_Open(index as ULONG) == INVALID_HANDLE_VALUE {
                 return None;
             }
         }
 
         Some(Ch347Device {
-            index,
+            index: index as ULONG,
             ts_type: CH347TransType::Serial,
             spi_cfg: SpiConfig::default(),
         })
@@ -268,7 +334,7 @@ impl SpiDrive for Ch347Device {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     fn write_after_read(
@@ -278,12 +344,11 @@ impl SpiDrive for Ch347Device {
         iobuf: &mut [u8],
     ) -> Result<(), &'static str> {
         unsafe {
-            let mut i_len = read_len as u32;
             if CH347SPI_Read(
                 self.index,
                 0x80,
                 write_len as ULONG,
-                &mut i_len,
+                &mut (read_len as ULONG),
                 iobuf.as_mut_ptr() as *mut libc::c_void,
             ) == 0
             {
@@ -291,7 +356,7 @@ impl SpiDrive for Ch347Device {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 }
 
