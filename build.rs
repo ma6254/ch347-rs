@@ -6,13 +6,13 @@ use shadow_rs::{Format, SdResult};
 
 fn main() -> SdResult<()> {
     let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
+        .args(["rev-parse", "HEAD"])
         .output()
         .unwrap();
     let git_hash = String::from_utf8(output.stdout).unwrap();
 
     let output = Command::new("git")
-        .args(&["describe", "--tags", &git_hash])
+        .args(["describe", "--tags", &git_hash])
         .output()
         .unwrap();
     let build_version = String::from_utf8(output.stdout).unwrap();
@@ -20,8 +20,18 @@ fn main() -> SdResult<()> {
     println!("cargo:rustc-env=GIT_HASH={}", git_hash);
     println!("cargo:rustc-env=BUILD_VERSION={}", build_version);
 
-    println!(r"cargo:rustc-link-lib=static=CH347DLLA64");
-    println!(r"cargo:rustc-link-search=static_lib");
+    #[cfg(target_os = "linux")]
+    {
+        // TODO: How can we pull in the library statically?
+        // println!(r"cargo:rustc-link-arg-bins=-static");
+        println!(r"cargo:rustc-link-lib=ch347spi");
+        println!(r"cargo:rustc-link-search=lib/x86_64");
+    }
+    #[cfg(target_os = "windows")]
+    {
+        println!(r"cargo:rustc-link-lib=static=CH347DLLA64");
+        println!(r"cargo:rustc-link-search=static_lib");
+    }
 
     shadow_rs::new_hook(hook)
 }
@@ -33,13 +43,13 @@ fn hook(file: &File) -> SdResult<()> {
 
 fn append_write_const(mut file: &File) -> SdResult<()> {
     let output = Command::new("git")
-        .args(&["rev-parse", "HEAD"])
+        .args(["rev-parse", "HEAD"])
         .output()
         .unwrap();
     let git_hash = String::from_utf8(output.stdout).unwrap();
 
     let output = Command::new("git")
-        .args(&["describe", "--tags", &git_hash])
+        .args(["describe", "--tags", &git_hash])
         .output()
         .unwrap();
     let build_version = String::from_utf8(output.stdout).unwrap();
