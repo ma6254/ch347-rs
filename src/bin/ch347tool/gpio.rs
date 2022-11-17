@@ -77,8 +77,22 @@ pub fn cli_operator_gpio(args: &CmdGpio) {
                 ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x00);
             }
         }
-        Commands::High => {}
-        Commands::Low => {}
+        Commands::High => {
+            if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
+                println!("open device {} fail", args.index);
+                return;
+            }
+            ch347_rs::gpio_set(args.index, 0x7f, 0x7f, 0x7f);
+            ch347_rs::close_device(args.index);
+        }
+        Commands::Low => {
+            if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
+                println!("open device {} fail", args.index);
+                return;
+            }
+            ch347_rs::gpio_set(args.index, 0x7f, 0x7f, 0x00);
+            ch347_rs::close_device(args.index);
+        }
         Commands::Read => {}
     }
 }
