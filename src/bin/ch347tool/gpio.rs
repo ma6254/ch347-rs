@@ -43,38 +43,41 @@ pub fn cli_operator_gpio(args: &CmdGpio) {
     println!("Select gpio mask: {}", args.gpio_mask);
     match args.command {
         Commands::Status => {
-            let mut gpio_dir: u8 = 0;
-            let mut gpio_data: u8 = 0;
             if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
                 eprintln!("open device {} fail", args.index);
                 return;
             }
-            ch347_rs::gpio_get(args.index, &mut gpio_dir, &mut gpio_data);
+            let res = ch347_rs::gpio_get(args.index);
             ch347_rs::close_device(args.index);
 
-            println!("Dir: 0x{:02X} Data: 0x{:02X}", gpio_dir, gpio_data);
-            for i in 0..7 {
-                println!(
-                    "GPIO{} {} {}",
-                    i,
-                    parse_gpio_dir(gpio_dir, i),
-                    parse_gpio_data(gpio_data, i),
-                );
+            match res {
+                Ok((gpio_dir, gpio_data)) => {
+                    println!("Dir: 0x{:02X} Data: 0x{:02X}", gpio_dir, gpio_data);
+
+                    for i in 0..7 {
+                        println!(
+                            "GPIO{} {} {}",
+                            i,
+                            parse_gpio_dir(gpio_dir, i),
+                            parse_gpio_data(gpio_data, i),
+                        );
+                    }
+                },
+                Err(err) => {
+                    eprintln!("GPIO status error {}", err)
+                }
             }
         }
         Commands::Pwm => {
-            let mut gpio_dir: u8 = 0;
-            let mut gpio_data: u8 = 0;
-
             if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
                 println!("open device {} fail", args.index);
                 return;
             }
-            ch347_rs::gpio_get(args.index, &mut gpio_dir, &mut gpio_data);
+            let _ = ch347_rs::gpio_get(args.index);
 
             loop {
-                ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x80);
-                ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x00);
+                let _ = ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x80);
+                let _ = ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x00);
             }
         }
         Commands::High => {
@@ -82,7 +85,21 @@ pub fn cli_operator_gpio(args: &CmdGpio) {
                 println!("open device {} fail", args.index);
                 return;
             }
-            ch347_rs::gpio_set(args.index, 0x7f, 0x7f, 0x7f);
+            /*
+             * Enable flag: corresponding to bit 0-7, corresponding to GPIO0-7.
+             *
+             * Set the I/O direction. If a certain bit is cleared to 0, the
+             * corresponding pin is input, and if a certain position is set to
+             * 1, the corresponding pin is output. GPIO0-7 corresponds to bits
+             * 0-7.
+             *
+             * Output data, if the I/O direction is output, then the
+             * corresponding pin outputs low level when a certain bit is cleared
+             * to 0, and the corresponding pin outputs high level when a certain
+             * position is 1.
+             */
+            let res = ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x80);
+            println!("gpio set {:?}", res);
             ch347_rs::close_device(args.index);
         }
         Commands::Low => {
@@ -90,7 +107,8 @@ pub fn cli_operator_gpio(args: &CmdGpio) {
                 println!("open device {} fail", args.index);
                 return;
             }
-            ch347_rs::gpio_set(args.index, 0x7f, 0x7f, 0x00);
+            let res = ch347_rs::gpio_set(args.index, 0x80, 0x80, 0x00);
+            println!("gpio set {:?}", res);
             ch347_rs::close_device(args.index);
         }
         Commands::Read => {}
