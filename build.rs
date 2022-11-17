@@ -24,7 +24,7 @@ fn main() -> SdResult<()> {
     {
         // TODO: How can we pull in the library statically?
         // println!(r"cargo:rustc-link-arg-bins=-static");
-        println!(r"cargo:rustc-link-lib=ch347spi");
+        println!(r"cargo:rustc-link-lib=ch347");
         println!(r"cargo:rustc-link-search=lib/x86_64");
     }
     #[cfg(target_os = "windows")]

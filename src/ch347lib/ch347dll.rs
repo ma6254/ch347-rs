@@ -277,14 +277,6 @@ impl fmt::Display for DeviceInfo {
 #[allow(non_snake_case)]
 /// # Safety
 /// This comes from a closed source C library. Rewrite it in Rust.
-pub unsafe fn CH347GetDeviceInfor(_iIndex: ULONG, _DevInformation: *const DeviceInfo) -> BOOL {
-    0
-}
-
-#[cfg(target_os = "linux")]
-#[allow(non_snake_case)]
-/// # Safety
-/// This comes from a closed source C library. Rewrite it in Rust.
 pub unsafe fn CH347Uart_GetDeviceInfor(_iIndex: ULONG, _DevInformation: *const DeviceInfo) -> BOOL {
     0
 }
@@ -303,28 +295,7 @@ pub unsafe fn CH347Uart_Open(_DevI: ULONG) -> HANDLE {
 /// This comes from a closed source C library. Rewrite it in Rust.
 pub unsafe fn CH347Uart_SetDeviceNotify() {}
 
-#[cfg(target_os = "linux")]
-#[allow(non_snake_case)]
-/// # Safety
-/// This comes from a closed source C library. Rewrite it in Rust.
-pub unsafe fn CH347GPIO_Get(_iIndex: ULONG, _iDir: PUCHAR, _iData: PUCHAR) -> BOOL {
-    0
-}
-
-#[cfg(target_os = "linux")]
-#[allow(non_snake_case)]
-/// # Safety
-/// This comes from a closed source C library. Rewrite it in Rust.
-pub unsafe fn CH347GPIO_Set(
-    _iIndex: ULONG,
-    _iEnable: UCHAR,
-    _iSetDirOut: UCHAR,
-    _iSetDataOut: UCHAR,
-) -> BOOL {
-    0
-}
-
-#[cfg_attr(target_os = "linux", link(name = "ch347spi"))]
+#[cfg_attr(target_os = "linux", link(name = "ch347"))]
 #[cfg_attr(target_os = "windows", link(name = "CH347DLLA64"))]
 extern "C" {
 
@@ -384,7 +355,6 @@ extern "C" {
     ///
     /// 执行成功返回 1，失败返回 0
     ///
-    #[cfg(target_os = "windows")]
     pub fn CH347GetDeviceInfor(iIndex: ULONG, DevInformation: *const DeviceInfo) -> BOOL;
 
     /// 设定设备事件通知程序
@@ -480,7 +450,6 @@ extern "C" {
     ///     UCHAR *iDir,   //引脚方向:GPIO0-7对应位0-7.0：输入；1：输出
     ///     UCHAR *iData); //GPIO0电平:GPIO0-7对应位0-7,0：低电平；1：高电平)
     /// ```
-    #[cfg(target_os = "windows")]
     pub fn CH347GPIO_Get(iIndex: ULONG, iDir: PUCHAR, iData: PUCHAR) -> BOOL;
 
     /// 设置CH347的GPIO方向和引脚电平值
@@ -491,7 +460,6 @@ extern "C" {
     ///     UCHAR iSetDirOut,   //设置I/O方向,某位清0则对应引脚为输入,某位置1则对应引脚为输出.GPIO0-7对应位0-7.
     ///     UCHAR iSetDataOut); //输出数据,如果I/O方向为输出,那么某位清0时对应引脚输出低电平,某位置1时对应引脚输出高电平
     /// ```
-    #[cfg(target_os = "windows")]
     pub fn CH347GPIO_Set(
         iIndex: ULONG,
         iEnable: UCHAR,
