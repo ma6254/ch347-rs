@@ -1,5 +1,5 @@
 use std::error::Error;
-use std::fmt;
+use std::{fmt, string};
 
 use super::ch347dll::*;
 use crate::spi_flash::{SpiDrive, SpiFlash};
@@ -188,15 +188,30 @@ pub fn i2c_device_detect(device_index: u32, i2c_dev_addr: u8) -> bool {
     true
 }
 
-pub fn gpio_get(index: u32, gpio_dir: *mut u8, gpio_data: *mut u8) {
+pub fn gpio_get(index: u32) -> Result<(u8, u8), string::String> {
+    let gpio_dir: u8 = 0;
+    let gpio_data: u8 = 0;
+
     unsafe {
-        CH347GPIO_Get(index as ULONG, gpio_dir as *mut u8, gpio_data as *mut u8);
+        match CH347GPIO_Get(
+                index as ULONG,
+                gpio_dir as *mut u8,
+                gpio_data as *mut u8,
+        ) {
+            0 => Err("".to_string()),
+            _ => Ok((gpio_dir, gpio_data))
+        }
     }
 }
 
-pub fn gpio_set(index: u32, gpio_enable: u8, gpio_dir: u8, gpio_data: u8) {
+pub fn gpio_set(index: u32, gpio_enable: u8, gpio_dir: u8, gpio_data: u8) -> Result<(), string::String> {
     unsafe {
-        CH347GPIO_Set(index as ULONG, gpio_enable, gpio_dir, gpio_data);
+        match
+            CH347GPIO_Set(index as ULONG, gpio_enable, gpio_dir, gpio_data)
+        {
+            0 => Err("".to_string()),
+            _ => Ok(()),
+        }
     }
 }
 
