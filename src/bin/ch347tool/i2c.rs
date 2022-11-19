@@ -17,12 +17,15 @@ pub struct CmdI2cDetect {
 pub fn cli_i2c_detect(args: &CmdI2cDetect) {
     println!("speed: {}", args.speed_level);
 
-    if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
-        println!("open device {} fail", args.index);
-        return;
-    }
+    let dev = match ch347_rs::Ch347Device::new(args.index) {
+        Ok(a) => a,
+        Err(e) => {
+            println!("{}", e);
+            return;
+        }
+    };
 
-    ch347_rs::i2c_set(args.index, args.speed_level);
+    dev.i2c_set(args.speed_level);
 
     println!("     0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
 
@@ -35,7 +38,7 @@ pub fn cli_i2c_detect(args: &CmdI2cDetect) {
                 continue;
             }
 
-            if ch347_rs::i2c_device_detect(args.index, y * 0x10 + x) {
+            if dev.i2c_device_detect(y * 0x10 + x) {
                 s.push_str(&format!(" {:02X}", y * 0x10 + x));
                 continue;
             }
@@ -44,8 +47,6 @@ pub fn cli_i2c_detect(args: &CmdI2cDetect) {
         }
         println!("{}", s);
     }
-
-    ch347_rs::close_device(args.index);
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -112,12 +113,15 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
         (device_addr << 1) + 1
     );
 
-    if ch347_rs::open_device(args.index) == ch347_rs::INVALID_HANDLE_VALUE {
-        println!("open device {} fail", args.index);
-        return;
-    }
+    let dev = match ch347_rs::Ch347Device::new(args.index) {
+        Ok(a) => a,
+        Err(e) => {
+            println!("{}", e);
+            return;
+        }
+    };
 
-    ch347_rs::i2c_set(args.index, args.speed_level);
+    dev.i2c_set(args.speed_level);
 
     match args.page {
         DumpPage::Byte => {
@@ -125,15 +129,18 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
             for y in 0..16 {
                 let mut s = format!("{:02X}:", y * 0x10);
                 for x in 0..16 {
-                    let mut wbuf: [u8; 2] = [device_addr << 1, y * 0x10 + x];
+                    let mut wbuf: [u8; 2] = [
+                        device_addr << 1, // device addr
+                        y * 0x10 + x,     // register addr
+                    ];
 
                     if ch347_rs::i2c_stream(
-                        args.index,
+                        dev.get_dev_index(),
                         2,
                         wbuf.as_mut_ptr(),
                         0,
                         std::ptr::null_mut::<u8>(),
-                    ) == 0
+                    ) == false
                     {
                         s.push_str(" XX");
                         continue;
@@ -142,8 +149,13 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
                     let mut wbuf: [u8; 1] = [(device_addr << 1) + 1];
                     let mut rbuf: [u8; 1] = [0];
 
-                    if ch347_rs::i2c_stream(args.index, 1, wbuf.as_mut_ptr(), 1, rbuf.as_mut_ptr())
-                        == 0
+                    if ch347_rs::i2c_stream(
+                        dev.get_dev_index(),
+                        1,
+                        wbuf.as_mut_ptr(),
+                        1,
+                        rbuf.as_mut_ptr(),
+                    ) == false
                     {
                         s.push_str(" XX");
                     }
@@ -161,12 +173,12 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
             let mut wbuf: [u8; 2] = [device_addr << 1, 0x00];
 
             if ch347_rs::i2c_stream(
-                args.index,
+                dev.get_dev_index(),
                 2,
                 wbuf.as_mut_ptr(),
                 0,
                 std::ptr::null_mut::<u8>(),
-            ) == 0
+            ) == false
             {
                 println!("i2c device addr nack");
                 return;
@@ -174,7 +186,13 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
 
             let mut wbuf: [u8; 1] = [(device_addr << 1) + 1];
             let mut rbuf: [u8; 256] = [0; 256];
-            ch347_rs::i2c_stream(args.index, 1, wbuf.as_mut_ptr(), 256, rbuf.as_mut_ptr());
+            ch347_rs::i2c_stream(
+                dev.get_dev_index(),
+                1,
+                wbuf.as_mut_ptr(),
+                256,
+                rbuf.as_mut_ptr(),
+            );
 
             println!("     0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F");
             for y in 0..16 {
@@ -186,6 +204,4 @@ pub fn cli_i2c_dump(args: &CmdI2cDump) {
             }
         }
     }
-
-    ch347_rs::close_device(args.index);
 }

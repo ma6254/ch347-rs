@@ -29,6 +29,7 @@ pub fn enum_device() -> Vec<Ch347Device> {
     device_info_list
 }
 
+#[cfg(target_os = "windows")]
 pub fn enum_uart_device() -> Vec<Ch347Device> {
     let mut device_info_list = Vec::new();
 
@@ -41,7 +42,12 @@ pub fn enum_uart_device() -> Vec<Ch347Device> {
     device_info_list
 }
 
+#[cfg(target_os = "windows")]
 pub fn open_device(index: u32) -> HANDLE {
+    unsafe { CH347OpenDevice(index as ULONG) }
+}
+#[cfg(target_os = "linux")]
+pub fn open_device(index: u32) -> i32 {
     unsafe { CH347OpenDevice(index as ULONG) }
 }
 
@@ -153,13 +159,7 @@ impl fmt::Display for I2cSpeed {
     }
 }
 
-pub fn i2c_set(index: u32, speed: I2cSpeed) {
-    unsafe {
-        CH347I2C_Set(index as ULONG, speed as ULONG);
-    }
-}
-
-pub fn i2c_stream(index: u32, wsize: u32, wbuf: *mut u8, rsize: u32, rbuf: *mut u8) -> i32 {
+pub fn i2c_stream(index: ULONG, wsize: u32, wbuf: *const u8, rsize: u32, rbuf: *mut u8) -> bool {
     unsafe {
         CH347StreamI2C(
             index as ULONG,
@@ -167,48 +167,30 @@ pub fn i2c_stream(index: u32, wsize: u32, wbuf: *mut u8, rsize: u32, rbuf: *mut 
             wbuf as *mut libc::c_void,
             rsize as ULONG,
             rbuf as *mut libc::c_void,
-        )
+        ) != 0
     }
 }
 
-pub fn i2c_device_detect(device_index: u32, i2c_dev_addr: u8) -> bool {
-    unsafe {
-        let mut wbuf: [u8; 1] = [i2c_dev_addr << 1];
-        if CH347StreamI2C(
-            device_index as ULONG,
-            1,
-            wbuf.as_mut_ptr() as *mut libc::c_void,
-            0,
-            std::ptr::null_mut::<libc::c_void>(),
-        ) == 0
-        {
-            return false;
-        }
-    }
-    true
-}
-
-pub fn gpio_get(index: u32) -> Result<(u8, u8), string::String> {
+pub fn gpio_get(index: ULONG) -> Result<(u8, u8), string::String> {
     let gpio_dir: u8 = 0;
     let gpio_data: u8 = 0;
 
     unsafe {
-        match CH347GPIO_Get(
-                index as ULONG,
-                gpio_dir as *mut u8,
-                gpio_data as *mut u8,
-        ) {
+        match CH347GPIO_Get(index as ULONG, gpio_dir as *mut u8, gpio_data as *mut u8) {
             0 => Err("".to_string()),
-            _ => Ok((gpio_dir, gpio_data))
+            _ => Ok((gpio_dir, gpio_data)),
         }
     }
 }
 
-pub fn gpio_set(index: u32, gpio_enable: u8, gpio_dir: u8, gpio_data: u8) -> Result<(), string::String> {
+pub fn gpio_set(
+    index: ULONG,
+    gpio_enable: u8,
+    gpio_dir: u8,
+    gpio_data: u8,
+) -> Result<(), string::String> {
     unsafe {
-        match
-            CH347GPIO_Set(index as ULONG, gpio_enable, gpio_dir, gpio_data)
-        {
+        match CH347GPIO_Set(index as ULONG, gpio_enable, gpio_dir, gpio_data) {
             0 => Err("".to_string()),
             _ => Ok(()),
         }
@@ -221,7 +203,12 @@ pub enum CH347TransType {
 }
 
 pub struct Ch347Device {
+    #[cfg(target_os = "windows")]
     index: ULONG,
+
+    #[cfg(target_os = "linux")]
+    fd: i32,
+
     ts_type: CH347TransType,
     spi_cfg: SpiConfig,
 }
@@ -233,14 +220,18 @@ pub fn enum_ch347_device() -> Vec<Ch347Device> {
         device_list.push(i);
     }
 
-    for i in enum_uart_device() {
-        device_list.push(i);
+    #[cfg(target_os = "windows")]
+    {
+        for i in enum_uart_device() {
+            device_list.push(i);
+        }
     }
 
     device_list
 }
 
 impl Ch347Device {
+    #[cfg(target_os = "windows")]
     pub fn new(index: u32) -> Result<Ch347Device, &'static str> {
         unsafe {
             if CH347OpenDevice(index as ULONG) == INVALID_HANDLE_VALUE {
@@ -255,6 +246,21 @@ impl Ch347Device {
         })
     }
 
+    #[cfg(target_os = "linux")]
+    pub fn new(index: u32) -> Result<Ch347Device, &'static str> {
+        let fd = unsafe { CH347OpenDevice(index as ULONG) };
+        if fd <= 0 {
+            return Err("CH347OpenDevice Fail");
+        }
+
+        Ok(Ch347Device {
+            fd,
+            ts_type: CH347TransType::Parallel,
+            spi_cfg: SpiConfig::default(),
+        })
+    }
+
+    #[cfg(target_os = "windows")]
     pub fn new_serial(index: u32) -> Option<Ch347Device> {
         unsafe {
             if CH347Uart_Open(index as ULONG) == INVALID_HANDLE_VALUE {
@@ -269,6 +275,16 @@ impl Ch347Device {
         })
     }
 
+    #[cfg(target_os = "windows")]
+    pub fn get_dev_id(&self) -> ULONG {
+        self.index
+    }
+
+    #[cfg(target_os = "linux")]
+    pub fn get_dev_index(&self) -> ULONG {
+        self.fd as ULONG
+    }
+
     pub fn spi_flash(mut self) -> Result<SpiFlash<Ch347Device>, Box<dyn Error>> {
         self.spi_cfg = self.get_raw_spi_config()?;
         Ok(SpiFlash::new(self))
@@ -280,8 +296,10 @@ impl Ch347Device {
         match self.ts_type {
             CH347TransType::Parallel => {
                 unsafe {
-                    if CH347GetDeviceInfor(self.index as libc::c_ulong, &device_info as *const _)
-                        == 0
+                    if CH347GetDeviceInfor(
+                        self.get_dev_index() as libc::c_ulong,
+                        &device_info as *const _,
+                    ) == 0
                     {
                         return None;
                     }
@@ -290,10 +308,7 @@ impl Ch347Device {
             }
             CH347TransType::Serial => {
                 unsafe {
-                    if CH347Uart_GetDeviceInfor(
-                        self.index as libc::c_ulong,
-                        &device_info as *const _,
-                    ) == 0
+                    if CH347Uart_GetDeviceInfor(self.get_dev_index(), &device_info as *const _) == 0
                     {
                         return None;
                     }
@@ -306,7 +321,7 @@ impl Ch347Device {
     pub fn get_raw_spi_config(&self) -> Result<SpiConfig, &'static str> {
         let mut spicfg = SpiConfig::default();
         unsafe {
-            if CH347SPI_GetCfg(self.index, &mut spicfg) == 0 {
+            if CH347SPI_GetCfg(self.get_dev_index(), &mut spicfg) == 0 {
                 return Err("CH347SPI_GetCfg Fail");
             }
         }
@@ -316,7 +331,7 @@ impl Ch347Device {
 
     pub fn apply_spi_config(&mut self) -> Result<(), &'static str> {
         unsafe {
-            if CH347SPI_Init(self.index, &mut self.spi_cfg) == 0 {
+            if CH347SPI_Init(self.get_dev_index(), &mut self.spi_cfg) == 0 {
                 return Err("CH347SPI_Init Fail");
             }
         }
@@ -333,14 +348,47 @@ impl Ch347Device {
 
         Ok(())
     }
+
+    pub fn i2c_set(&self, speed: I2cSpeed) {
+        unsafe {
+            CH347I2C_Set(self.get_dev_index(), speed as ULONG);
+        }
+    }
+
+    pub fn i2c_device_detect(&self, addr: u8) -> bool {
+        unsafe {
+            let mut wbuf: [u8; 1] = [addr << 1];
+            if CH347StreamI2C(
+                self.get_dev_index(),
+                1,
+                wbuf.as_mut_ptr() as *mut libc::c_void,
+                0,
+                std::ptr::null_mut::<libc::c_void>(),
+            ) == 0
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    pub fn i2c_stream(&self, wbuf: &[u8], rbuf: &mut [u8]) -> bool {
+        i2c_stream(
+            self.get_dev_index(),
+            wbuf.len() as u32,
+            wbuf.as_ptr(),
+            rbuf.len() as u32,
+            rbuf.as_mut_ptr(),
+        )
+    }
 }
 
 impl SpiDrive for Ch347Device {
     fn transfer(&self, iobuf: &mut [u8]) -> Result<(), &'static str> {
         unsafe {
             if CH347StreamSPI4(
-                self.index,
-                0x00,
+                self.get_dev_index(),
+                0x80,
                 iobuf.len() as ULONG,
                 iobuf.as_mut_ptr() as *mut libc::c_void,
             ) == 0
@@ -360,7 +408,7 @@ impl SpiDrive for Ch347Device {
     ) -> Result<(), &'static str> {
         unsafe {
             if CH347SPI_Read(
-                self.index,
+                self.get_dev_index(),
                 0x80,
                 write_len as ULONG,
                 &mut (read_len as ULONG),
@@ -378,7 +426,7 @@ impl SpiDrive for Ch347Device {
 impl Drop for Ch347Device {
     fn drop(&mut self) {
         unsafe {
-            CH347CloseDevice(self.index);
+            CH347CloseDevice(self.get_dev_index());
         }
     }
 }

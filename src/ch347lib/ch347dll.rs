@@ -330,6 +330,9 @@ extern "C" {
     ///
     /// 执行成功返回设备序号
     ///
+    #[cfg(target_os = "linux")]
+    pub fn CH347OpenDevice(DevI: ULONG) -> i32;
+    #[cfg(target_os = "windows")]
     pub fn CH347OpenDevice(DevI: ULONG) -> HANDLE;
 
     /// 该函数用于关闭 CH347 设备，支持 CH347 所有模式下 SPI/I2C/JTAG 接口的关闭

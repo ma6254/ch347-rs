@@ -1,4 +1,4 @@
-use ch347_rs::{self, FuncType, UsbClass};
+use ch347_rs::{self, close_device, FuncType, UsbClass};
 use clap::{Parser, ValueEnum};
 use serde::Serialize;
 use serde_json;
@@ -61,9 +61,17 @@ pub fn cli_list_device(args: &CmdListDevice) {
         }
     }
 
+    for i in &l {
+        close_device(i.index as u32);
+    }
+
     match args.format {
         ListFormat::Tree => {
             println!("'Ch347 device list:");
+
+            for i in l {
+                println!("{}# {}", i.index, i.name)
+            }
         }
         ListFormat::Json => {
             let j = serde_json::to_string_pretty(&l);
