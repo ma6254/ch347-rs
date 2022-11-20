@@ -172,17 +172,32 @@ pub fn i2c_stream(index: ULONG, wsize: u32, wbuf: *const u8, rsize: u32, rbuf: *
 }
 
 pub fn gpio_get(index: ULONG) -> Result<(u8, u8), string::String> {
-    let gpio_dir: u8 = 0;
-    let gpio_data: u8 = 0;
+    let mut dir: u8 = 0;
+    let gpio_dir: *mut u8 = &mut dir;
+    let mut data: u8 = 0;
+    let gpio_data: *mut u8 = &mut data;
 
     unsafe {
-        match CH347GPIO_Get(index as ULONG, gpio_dir as *mut u8, gpio_data as *mut u8) {
-            0 => Err("".to_string()),
-            _ => Ok((gpio_dir, gpio_data)),
+        match CH347GPIO_Get(index as ULONG, gpio_dir, gpio_data) {
+            0 => Err("fail".to_string()),
+            _ => Ok((dir, data))
         }
     }
 }
 
+/**
+ * Enable flag: corresponding to bit 0-7, corresponding to GPIO0-7.
+ *
+ * Set the I/O direction. If a certain bit is cleared to 0, the
+ * corresponding pin is input, and if a certain position is set to
+ * 1, the corresponding pin is output. GPIO0-7 corresponds to bits
+ * 0-7.
+ *
+ * Output data, if the I/O direction is output, then the
+ * corresponding pin outputs low level when a certain bit is cleared
+ * to 0, and the corresponding pin outputs high level when a certain
+ * position is 1.
+ */
 pub fn gpio_set(
     index: ULONG,
     gpio_enable: u8,
