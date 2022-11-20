@@ -1,3 +1,5 @@
+use std::thread::sleep;
+use std::time::Duration;
 use clap::{Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
@@ -43,85 +45,65 @@ pub fn cli_operator_gpio(args: &CmdGpio) {
     println!("Select gpio mask: {}", args.gpio_mask);
     match args.command {
         Commands::Status => {
-            let dev = match ch347_rs::Ch347Device::new(args.index) {
-                Ok(a) => a,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
+            let dev = ch347_rs::Ch347Device::new(args.index).expect("error opening device");
 
-            let res = ch347_rs::gpio_get(dev.get_dev_index());
+            let (gpio_dir, gpio_data) = ch347_rs::gpio_get(dev.get_dev_index()).expect("GPIO status error");
+            println!("Dir: 0x{:02X} Data: 0x{:02X}", gpio_dir, gpio_data);
 
-            match res {
-                Ok((gpio_dir, gpio_data)) => {
-                    println!("Dir: 0x{:02X} Data: 0x{:02X}", gpio_dir, gpio_data);
-
-                    for i in 0..7 {
-                        println!(
-                            "GPIO{} {} {}",
-                            i,
-                            parse_gpio_dir(gpio_dir, i),
-                            parse_gpio_data(gpio_data, i),
-                        );
-                    }
-                }
-                Err(err) => {
-                    eprintln!("GPIO status error {}", err)
-                }
+            for i in 0..=7 {
+                println!(
+                    "GPIO{} {} {}",
+                    i,
+                    parse_gpio_dir(gpio_dir, i),
+                    parse_gpio_data(gpio_data, i),
+                );
             }
         }
         Commands::Pwm => {
-            let dev = match ch347_rs::Ch347Device::new(args.index) {
-                Ok(a) => a,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
-            let _ = ch347_rs::gpio_get(dev.get_dev_index());
+            let mask = args.gpio_mask.parse::<u8>().unwrap();
+            let dev = ch347_rs::Ch347Device::new(args.index).expect("error opening device");
+            let (curr_dir, curr_data) = ch347_rs::gpio_get(dev.get_dev_index()).unwrap();
+            let dir = curr_dir | mask;
 
+            // TODO: This is currently a fixed 3Hz blinky with 60% duty cycle.
+            // Frequency and duty cycle would need to be configurable.
+            let freq = 3.0;
+            let duty = 0.6;
+            let on_period = Duration::from_micros((duty * 1_000_000.0 / freq) as u64);
+            let off_period = Duration::from_micros(((1.0 - duty) * 1_000_000.0 / freq) as u64);
             loop {
-                let _ = ch347_rs::gpio_set(dev.get_dev_index(), 0x80, 0x80, 0x80);
-                let _ = ch347_rs::gpio_set(dev.get_dev_index(), 0x80, 0x80, 0x00);
+                let data = curr_data | mask;
+                let _ = ch347_rs::gpio_set(dev.get_dev_index(), mask, dir, data);
+                sleep(on_period);
+                let data = curr_data & !mask;
+                let _ = ch347_rs::gpio_set(dev.get_dev_index(), mask, dir, data);
+                sleep(off_period);
             }
         }
         Commands::High => {
-            let dev = match ch347_rs::Ch347Device::new(args.index) {
-                Ok(a) => a,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
-            /*
-             * Enable flag: corresponding to bit 0-7, corresponding to GPIO0-7.
-             *
-             * Set the I/O direction. If a certain bit is cleared to 0, the
-             * corresponding pin is input, and if a certain position is set to
-             * 1, the corresponding pin is output. GPIO0-7 corresponds to bits
-             * 0-7.
-             *
-             * Output data, if the I/O direction is output, then the
-             * corresponding pin outputs low level when a certain bit is cleared
-             * to 0, and the corresponding pin outputs high level when a certain
-             * position is 1.
-             */
-            let res = ch347_rs::gpio_set(dev.get_dev_index(), 0x80, 0x80, 0x80);
-            println!("gpio set {:?}", res);
+            let mask = args.gpio_mask.parse::<u8>().unwrap();
+            let dev = ch347_rs::Ch347Device::new(args.index).expect("error opening device");
+            let (curr_dir, curr_data) = ch347_rs::gpio_get(dev.get_dev_index()).unwrap();
+            let dir = curr_dir | mask;
+            let data = curr_data | mask;
+            let res = ch347_rs::gpio_set(dev.get_dev_index(), mask, dir, data);
+            println!("gpio set result {:?}", res);
             ch347_rs::close_device(args.index);
         }
         Commands::Low => {
-            let dev = match ch347_rs::Ch347Device::new(args.index) {
-                Ok(a) => a,
-                Err(e) => {
-                    println!("{}", e);
-                    return;
-                }
-            };
-            let res = ch347_rs::gpio_set(dev.get_dev_index(), 0x80, 0x80, 0x00);
-            println!("gpio set {:?}", res);
+            let mask = args.gpio_mask.parse::<u8>().unwrap();
+            let dev = ch347_rs::Ch347Device::new(args.index).expect("error opening device");
+            let (curr_dir, curr_data) = ch347_rs::gpio_get(dev.get_dev_index()).unwrap();
+            let dir = curr_dir | mask;
+            let data = curr_data & !mask;
+            let res = ch347_rs::gpio_set(dev.get_dev_index(), mask, dir, data);
+            println!("gpio set result {:?}", res);
+            ch347_rs::close_device(args.index);
         }
-        Commands::Read => {}
+        Commands::Read => {
+            let dev = ch347_rs::Ch347Device::new(args.index).expect("error opening device");
+            let res = ch347_rs::gpio_get(dev.get_dev_index());
+            println!("gpio get {:?}", res);
+        }
     }
 }
