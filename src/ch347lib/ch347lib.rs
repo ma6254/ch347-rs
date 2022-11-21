@@ -159,15 +159,25 @@ impl fmt::Display for I2cSpeed {
     }
 }
 
-pub fn i2c_stream(index: ULONG, wsize: u32, wbuf: *const u8, rsize: u32, rbuf: *mut u8) -> bool {
+pub fn i2c_stream(
+    index: ULONG,
+    wsize: u32,
+    wbuf: *const u8,
+    rsize: u32,
+    rbuf: *mut u8,
+) -> Result<(), ()> {
     unsafe {
-        CH347StreamI2C(
+        if CH347StreamI2C(
             index as ULONG,
             wsize as ULONG,
             wbuf as *mut libc::c_void,
             rsize as ULONG,
             rbuf as *mut libc::c_void,
-        ) != 0
+        ) == 0
+        {
+            return Err(());
+        }
+        Ok(())
     }
 }
 
@@ -180,7 +190,7 @@ pub fn gpio_get(index: ULONG) -> Result<(u8, u8), string::String> {
     unsafe {
         match CH347GPIO_Get(index as ULONG, gpio_dir, gpio_data) {
             0 => Err("fail".to_string()),
-            _ => Ok((dir, data))
+            _ => Ok((dir, data)),
         }
     }
 }
@@ -291,7 +301,7 @@ impl Ch347Device {
     }
 
     #[cfg(target_os = "windows")]
-    pub fn get_dev_id(&self) -> ULONG {
+    pub fn get_dev_index(&self) -> ULONG {
         self.index
     }
 
@@ -387,7 +397,7 @@ impl Ch347Device {
         true
     }
 
-    pub fn i2c_stream(&self, wbuf: &[u8], rbuf: &mut [u8]) -> bool {
+    pub fn i2c_stream(&self, wbuf: &[u8], rbuf: &mut [u8]) -> Result<(), ()> {
         i2c_stream(
             self.get_dev_index(),
             wbuf.len() as u32,
